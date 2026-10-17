@@ -526,7 +526,7 @@ export class Vekil implements VekilCore {
       this.alert("EXEC_REFUSED", code, { ...rec, tr: reasonTr(code) });
       out = this.result(ctx, "ENTRY_ABORTED", [code], { chain, clOrdId });
     }
-    await this.syncExecutor().catch((e) => this.pushAlert("EXECUTOR_UNREACHABLE", errMsg(e)));
+    await this.syncAndRefresh().catch((e) => this.pushAlert("EXECUTOR_UNREACHABLE", errMsg(e)));
     return out;
   }
 
@@ -544,7 +544,7 @@ export class Vekil implements VekilCore {
       } catch (e) {
         return this.result(ctx, "LOCAL_BLOCK", ["ORDER_FAILED"], { note: errMsg(e) });
       }
-      await this.syncExecutor().catch((e) => this.pushAlert("EXECUTOR_UNREACHABLE", errMsg(e)));
+      await this.syncAndRefresh().catch((e) => this.pushAlert("EXECUTOR_UNREACHABLE", errMsg(e)));
       if (r.result === "REFUSED") return this.result(ctx, "LOCAL_BLOCK", [r.refusal ?? "ORDER_FAILED"]);
       return this.result(ctx, exit ? "CLOSING" : "ADJUSTED", []);
     });
@@ -604,6 +604,16 @@ export class Vekil implements VekilCore {
   }
 
   // ------------------------------------------------------------ executor sync (§15.2)
+
+  /** Sync events, then refresh the cached executor health (positions in PublicState). */
+  private async syncAndRefresh(): Promise<void> {
+    await this.syncExecutor();
+    try {
+      this.health = await this.d.executor.health();
+    } catch {
+      if (this.health) this.health = { ...this.health, ok: false };
+    }
+  }
 
   syncExecutor(): Promise<void> {
     if (this.syncing) {
@@ -702,7 +712,7 @@ export class Vekil implements VekilCore {
   /** Works in every status; never waits for the entry mutex. */
   async ownerClose(entryOrderHash: Hex32): Promise<ExecResult> {
     const r = await this.d.executor.exit(entryOrderHash, "OWNER_CLOSE");
-    void this.track(this.syncExecutor().catch((e) => this.pushAlert("EXECUTOR_UNREACHABLE", errMsg(e))));
+    void this.track(this.syncAndRefresh().then(() => this.emitState()).catch((e) => this.pushAlert("EXECUTOR_UNREACHABLE", errMsg(e))));
     return r;
   }
 
@@ -779,7 +789,7 @@ export class Vekil implements VekilCore {
           errors.push(`flatten ${p.clOrdId}: ${errMsg(e)}`);
         }
       }
-      void this.track(this.syncExecutor().catch((e) => this.pushAlert("EXECUTOR_UNREACHABLE", errMsg(e))));
+      void this.track(this.syncAndRefresh().then(() => this.emitState()).catch((e) => this.pushAlert("EXECUTOR_UNREACHABLE", errMsg(e))));
     }
 
     const report: KillReport = {
