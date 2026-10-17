@@ -325,18 +325,31 @@ describe("restart recovery", () => {
     expect(pendingStore.load()).toEqual([]);
   });
 
-  it("an exit whose state stays unknown is released after a bounded number of polls", async () => {
+  it("an exit whose state is unknown is never released: one sell only, the late fill is applied", async () => {
     const a = await approved();
     await ex.execute(a.req, a.h);
     const orig = exchange.getOrder.bind(exchange);
-    exchange.getOrder = async (i, c) => ({ ...(await orig(i, c)), state: "live" });
+    let down = true;
+    exchange.getOrder = async (i, c) => {
+      if (down && c.startsWith("x")) throw new Error("ATK down");
+      return orig(i, c);
+    };
     expect((await ex.exit(a.h, "STOP_HIT")).result).toBe("UNKNOWN");
-    for (let i = 0; i < EXIT_POLL_MAX_TRIES; i++) {
+    for (let i = 0; i < EXIT_POLL_MAX_TRIES + 3; i++) {
       clock.advance(5_000);
       await new Promise((r) => setTimeout(r, 0));
+      await ex.monitorTick(); // must not send a second sell
     }
-    expect(ex.state.positions[0]?.exiting ?? null).toBeNull();
-    expect(ex.state.events.at(-1)).toMatchObject({ type: "ALERT", data: { code: "EXIT_STATE_UNKNOWN" } });
+    expect(ex.state.positions[0]?.exiting).not.toBeNull();
+    expect(ex.state.events.some((e) => e.type === "ALERT" && e.data.code === "EXIT_STATE_UNKNOWN")).toBe(true);
+    expect((await ex.exit(a.h, "OWNER_CLOSE")).refusal).toBe("EXIT_IN_PROGRESS");
+    down = false;
+    clock.advance(5_000);
+    await new Promise((r) => setTimeout(r, 0));
+    const sells = (await exchange.listRecentOrders("AVAX-TRY", 0)).filter((o) => o.side === "sell");
+    expect(sells).toHaveLength(1);
+    expect(ex.state.positions).toEqual([]);
+    expect(ex.state.events.at(-1)).toMatchObject({ type: "EXIT", data: { reason: "STOP_HIT" } });
     ex.stop();
   });
 });

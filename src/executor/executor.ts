@@ -62,8 +62,8 @@ export interface PendingEntry {
   approvalAt: number;
 }
 
-/** Background polls of an exit give up after this many tries, clear `exiting` and alert, so exits can be retried
- * (the next sell is bounded by our inventory and the account's base balance, so it can never oversell). */
+/** After this many background polls of an exit an ALERT is raised; polling continues. `exiting` is released only on
+ * a confirmed terminal state or "order not found", never while the state is unknown (a second sell could oversell). */
 export const EXIT_POLL_MAX_TRIES = 12;
 
 export class ExecutorStateMismatchError extends Error {
@@ -278,10 +278,12 @@ export class Executor implements ExecutorApi {
       if (!(e instanceof OrderNotFoundError)) return refused("ALREADY_EXECUTED"); // can't prove it was never sent
     }
     // 5. Persist first, then place exactly the approved order.
-    this.st.executed.push(h);
-    this.save();
+    // Pending first: a crash between the two writes leaves a pending entry that recover() resolves (not found →
+    // NOT_FILLED), never a sent order that nobody tracks.
     this.pending.push({ orderHash: h, req, approvalAt });
     this.savePending();
+    this.st.executed.push(h);
+    this.save();
     const spec = await this.spec(req.instId);
     try {
       await this.o.exchange.placeOrder({ instId: req.instId, side: "buy", ordType: "ioc", px: req.px, sz: req.sz, clOrdId });
@@ -590,15 +592,8 @@ export class Executor implements ExecutorApi {
 
   private pollExitInBackground(entryOrderHash: Hex32, instId: string, clOrdId: string, spec: InstrumentSpec | null): void {
     this.pollInBackground(instId, clOrdId, (o) => this.onExitFinal(entryOrderHash, o, spec), {
-      maxTries: EXIT_POLL_MAX_TRIES,
-      onGiveUp: () => {
-        const pos = this.position(entryOrderHash);
-        if (pos?.exiting?.clOrdId === clOrdId) {
-          pos.exiting = null;
-          this.save();
-        }
-        this.push("ALERT", { code: "EXIT_STATE_UNKNOWN", details: `${clOrdId}: durum bilinmiyor; çıkış yeniden denenebilir` });
-      },
+      alertAfter: EXIT_POLL_MAX_TRIES,
+      onSlow: () => this.push("ALERT", { code: "EXIT_STATE_UNKNOWN", details: `${clOrdId}: çıkış emrinin durumu bilinmiyor; izlenmeye devam ediliyor` }),
     });
   }
 
@@ -606,7 +601,7 @@ export class Executor implements ExecutorApi {
     instId: string,
     clOrdId: string,
     onFinal: (o: OrderState) => void,
-    limit: { maxTries: number; onGiveUp: () => void } | null = null,
+    slow: { alertAfter: number; onSlow: () => void } | null = null,
   ): void {
     if (this.background.has(clOrdId)) return;
     let tries = 0;
@@ -626,11 +621,7 @@ export class Executor implements ExecutorApi {
       } catch {
         // keep polling
       }
-      if (limit && this.background.has(clOrdId) && tries >= limit.maxTries) {
-        this.background.delete(clOrdId);
-        stop();
-        limit.onGiveUp();
-      }
+      if (slow && this.background.has(clOrdId) && tries === slow.alertAfter) slow.onSlow();
     });
     this.background.add(clOrdId);
   }
