@@ -8,8 +8,8 @@ import { makeAgentPort } from "../agent/agent.js";
 import { makeMarketContextFn } from "../agent/context.js";
 import { makeIndicatorsFn } from "../agent/indicators.js";
 import { AnthropicLlm } from "../agent/llm/anthropic.js";
-import { ScriptedLlm } from "../agent/llm/scripted.js";
-import { makePolicyParser } from "../agent/policy-parser.js";
+import { ScriptedLlm, ScriptFileSchema } from "../agent/llm/scripted.js";
+import { makePolicyParser, PROPOSE_POLICY } from "../agent/policy-parser.js";
 import { makeRogueBuilder, R1_PAIR } from "../agent/redteam.js";
 import { AtkClient, stdioSpawner, type AtkSpawner } from "../atk/client.js";
 import { readAllowlist } from "../atk/manifest.js";
@@ -165,15 +165,21 @@ export async function buildRuntime(cfg: Config, opts: RuntimeOpts = {}): Promise
     const indicators = makeIndicatorsFn({ market, policy: policyFromChain, profile: cfg.strategyProfile, clock });
     let llm: LlmClient;
     let model: string;
+    let parserLlm: LlmClient;
     if (cfg.llmProvider === "scripted") {
-      const script: unknown = JSON.parse(readFileSync(opts.scriptPath ?? SMOKE_SCRIPT, "utf8"));
-      llm = ScriptedLlm.fromFile(script, {
+      // One fixture file; propose_policy turns feed the parser, all other turns feed the agent, each in order.
+      const script = ScriptFileSchema.parse(JSON.parse(readFileSync(opts.scriptPath ?? SMOKE_SCRIPT, "utf8")));
+      const isParserTurn = (t: (typeof script.turns)[number]): boolean => t.content.some((b) => b.type === "tool_use" && b.name === PROPOSE_POLICY);
+      const resolver = {
         clock, indicators, r1Pair: R1_PAIR, defaultInstId: cfg.instId,
-        currentStopPx: async (instId) => (await executorApi.health()).positions.find((p) => p.instId === instId)?.stopPx ?? null,
-      });
+        currentStopPx: async (instId: string) => (await executorApi.health()).positions.find((p) => p.instId === instId)?.stopPx ?? null,
+      };
+      llm = new ScriptedLlm(script.turns.filter((t) => !isParserTurn(t)), resolver);
+      parserLlm = new ScriptedLlm(script.turns.filter(isParserTurn), resolver);
       model = "scripted";
     } else {
       llm = new AnthropicLlm({ model: cfg.llm.model, apiKey: cfg.llm.apiKey ?? undefined, clock });
+      parserLlm = llm;
       model = cfg.llm.model;
     }
     const agent = makeAgentPort({
@@ -182,7 +188,7 @@ export async function buildRuntime(cfg: Config, opts: RuntimeOpts = {}): Promise
       marketContext: makeMarketContextFn({ market, clock }), positions: async () => (await executorApi.health()).positions,
     });
     const buildRogue = makeRogueBuilder({ r1Pair: R1_PAIR, instId: cfg.instId, market, indicators });
-    const parsePolicy = makePolicyParser({ llm, clock, instrument: (id) => market.getInstrument(id) });
+    const parsePolicy = makePolicyParser({ llm: parserLlm, clock, instrument: (id) => market.getInstrument(id) });
 
     // ---- ledger, state, audit
     const ledger = new FileLedger(join(cfg.dataDir, "ledger.jsonl"), clock);

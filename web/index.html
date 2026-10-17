@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--VEKIL_TOKEN-->
+  <title>VEKİL</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">VEKİL</div>
+    <span id="status" class="pill">…</span>
+    <span id="mode" class="badge"></span>
+    <span id="chainName" class="badge"></span>
+    <span id="brake" class="badge danger hidden">Kontrat freni AKTİF</span>
+    <a id="contract" class="link" target="_blank" rel="noopener"></a>
+    <span id="erc8004" class="badge hidden"></span>
+    <div class="spacer"></div>
+    <div class="kill">
+      <button id="btnKill" class="big danger">DURDUR</button>
+      <button id="btnKillFlatten" class="danger outline">Durdur ve kapat</button>
+      <div id="killTimings" class="timings"></div>
+    </div>
+  </header>
+
+  <div id="alerts" class="alerts"></div>
+
+  <main class="grid">
+    <section class="card" id="cardPolicy">
+      <h2>Kurallar (zincirde)</h2>
+      <blockquote id="sourceText" class="source">—</blockquote>
+      <table class="kv" id="policyFields"></table>
+      <div class="meta"><span id="policyVersion"></span> <span id="policyOnChain" class="ok"></span></div>
+    </section>
+
+    <section class="card" id="cardWrite">
+      <h2>Kurallarını yaz</h2>
+      <textarea id="ruleText" maxlength="1000" rows="4" placeholder="Örn: Sadece AVAX işlem yap. İşlem başına en fazla 200 TL. Günlük risk en fazla 100 TL. Her işlemde zarar-kes olsun, en fazla %3."></textarea>
+      <div class="row"><button id="btnPropose">Yapay zekâ ile dönüştür</button><span id="proposeMsg" class="muted"></span></div>
+      <div id="proposal" class="hidden">
+        <p id="summaryTr" class="summary"></p>
+        <table class="mapping"><thead><tr><th>Senin cümlen</th><th>Kontrat alanı</th><th>Değer</th></tr></thead><tbody id="mappingBody"></tbody></table>
+        <div id="assumptionsBox"><h3>Varsayımlar</h3><ul id="assumptions" class="assume"></ul></div>
+        <div id="questionsBox"><h3>Sorular</h3><ul id="questions" class="questions"></ul></div>
+        <ul id="errors" class="errors"></ul>
+        <label class="check"><input type="checkbox" id="acceptAssumptions"> Varsayımları kabul ediyorum</label>
+        <div class="row">
+          <button id="btnApply" class="primary" disabled>Onayla ve zincire yaz</button>
+          <button id="btnWallet" class="outline" disabled>Cüzdanla imzala</button>
+          <span id="applyMsg" class="muted"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="cardAgent">
+      <h2>Ajan</h2>
+      <div class="row badges"><span id="action" class="badge strong"></span><span id="regime" class="badge"></span><span id="playbook" class="badge"></span><span id="confidence" class="badge"></span><span id="outcome" class="badge"></span></div>
+      <h3>Kanıtlar</h3><ul id="evidence"></ul>
+      <div class="two">
+        <div><h3>Yükseliş senaryosu</h3><p id="bull" class="muted"></p></div>
+        <div><h3>Düşüş senaryosu</h3><p id="bear" class="muted"></p></div>
+      </div>
+      <h3>Gerekçe</h3><p id="thesis"></p>
+      <h3>Bu fikri bozan durum</h3><p id="invalidation" class="muted"></p>
+      <h3>Ders</h3><p id="lesson" class="muted"></p>
+      <div class="row">
+        <button id="btnThink" class="primary">Şimdi düşün</button>
+        <span>Sonraki kontrol: <b id="countdown">—</b></span>
+        <span id="model" class="muted"></span>
+      </div>
+      <div class="row">
+        <input id="ownerNote" maxlength="300" placeholder="Sahip notu (bir döngü için)">
+        <button id="btnNote">Sahip notu gönder</button>
+      </div>
+      <div id="pendingNote" class="muted"></div>
+    </section>
+
+    <section class="card" id="cardPosition">
+      <h2>Pozisyon / Bugün</h2>
+      <div id="positions"><p class="muted">Açık pozisyon yok.</p></div>
+      <table class="kv">
+        <tr><th>Gerçekleşen K/Z</th><td id="realized"></td></tr>
+        <tr><th>Açık K/Z</th><td id="unrealized"></td></tr>
+        <tr><th>Bu saat işlem</th><td id="tradesHour"></td></tr>
+        <tr><th>Bugün işlem</th><td id="tradesDay"></td></tr>
+        <tr><th>Kullanılan risk</th><td id="riskUsed"></td></tr>
+        <tr><th>Risk bütçesi</th><td id="riskBudget"></td></tr>
+      </table>
+    </section>
+
+    <section class="card" id="cardRedteam">
+      <h2>Kandırma testi</h2>
+      <div class="row">
+        <button id="btnInjection" class="danger outline">Zararlı haber enjekte et</button>
+        <button id="btnRogue" class="danger outline">Ele geçirilmiş yapay zekâ</button>
+      </div>
+      <div id="redteam" class="muted">TEST — borsaya gönderilmez</div>
+    </section>
+
+    <section class="card" id="cardVerify">
+      <h2>Doğrulama</h2>
+      <div class="row">
+        <button id="btnVerify">Doğrula</button>
+        <button id="btnTamper" class="outline">Kurcalama testi</button>
+        <button id="btnAnchor" class="outline">Şimdi çapala</button>
+      </div>
+      <ul id="checks" class="checks"></ul>
+      <div id="proof" class="muted"></div>
+      <div class="meta">Kayıt #<span id="ledgerSeq">0</span> · zincirde #<span id="anchoredSeq">0</span></div>
+    </section>
+
+    <section class="card" id="cardAudit">
+      <h2>Denetçi</h2>
+      <div class="row"><button id="btnAudit">Denetle</button><span id="auditSummary" class="muted"></span></div>
+      <table class="audit"><thead><tr><th>clOrdId</th><th>Tür</th><th>Durum</th><th>Ayrıntı</th></tr></thead><tbody id="auditBody"></tbody></table>
+    </section>
+
+    <section class="card wide" id="cardFeed">
+      <h2>Akış</h2>
+      <ol id="feed" class="feed"></ol>
+    </section>
+
+    <section class="card wide" id="cardStartup">
+      <h2>Başlangıç kontrolleri</h2>
+      <ul id="startup" class="checks"></ul>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
