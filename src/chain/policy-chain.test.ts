@@ -165,3 +165,20 @@ describe.skipIf(!hasAnvil)("ViemPolicyChain on anvil", () => {
     expect(res.ok).toBe(false);
   });
 });
+
+describe("writeWithGasFallback", () => {
+  it("retries with a fixed gas limit only when the estimate exceeds the block gas limit", async () => {
+    const { writeWithGasFallback, FALLBACK_GAS } = await import("./policy-chain.js");
+    const calls: (bigint | undefined)[] = [];
+    const blockLimit = Object.assign(new Error("Missing or invalid parameters."), { cause: { details: "exceeds block gas limit" } });
+    const h = await writeWithGasFallback(async (gas) => {
+      calls.push(gas);
+      if (gas === undefined) throw blockLimit;
+      return "0xabc";
+    });
+    expect(h).toBe("0xabc");
+    expect(calls).toEqual([undefined, FALLBACK_GAS]);
+    const other = Object.assign(new Error("x"), { details: "insufficient funds" });
+    await expect(writeWithGasFallback(async () => { throw other; })).rejects.toBe(other);
+  });
+});

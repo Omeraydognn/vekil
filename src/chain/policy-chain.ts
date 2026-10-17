@@ -87,6 +87,28 @@ function errorMessage(e: unknown): string {
   return String(e);
 }
 
+/** Gas limit used when the node's eth_estimateGas fails with "exceeds block gas limit" (seen on some Fuji RPCs).
+ * Our heaviest call (setPolicy with a long source text) stays well under it; Fuji blocks hold far more. */
+export const FALLBACK_GAS = 1_500_000n;
+
+function isBlockGasLimitError(e: unknown): boolean {
+  for (let c: unknown = e, i = 0; c && typeof c === "object" && i < 8; c = (c as { cause?: unknown }).cause, i++) {
+    const d = (c as { details?: unknown }).details;
+    if (typeof d === "string" && /exceeds block gas limit/i.test(d)) return true;
+  }
+  return false;
+}
+
+/** Estimate gas as usual; only if the node refuses the estimate that way, send once more with FALLBACK_GAS. */
+export async function writeWithGasFallback(write: (gas?: bigint) => Promise<Hex>): Promise<Hex> {
+  try {
+    return await write();
+  } catch (e) {
+    if (!isBlockGasLimitError(e)) throw e;
+    return write(FALLBACK_GAS);
+  }
+}
+
 const lowerAddr = (a: string): Address => a.toLowerCase() as Address;
 const bytes15 = (prefix30hex: string): Hex => {
   if (!PREFIX30_RE.test(prefix30hex)) throw new Error(`not a 30-hex prefix: ${prefix30hex}`);
@@ -389,12 +411,15 @@ export class ViemPolicyChain implements PolicyChain {
     if (!signer) return { ok: false, error: `no ${role} key configured` };
     try {
       return await signer.queue.run(async () => {
-        const txHash = await signer.wallet.writeContract({
-          address: this.addr,
-          abi: vekilPolicyAbi,
-          functionName: functionName as never,
-          args: args as never,
-        } as never);
+        const txHash = await writeWithGasFallback((gas) =>
+          signer.wallet.writeContract({
+            address: this.addr,
+            abi: vekilPolicyAbi,
+            functionName: functionName as never,
+            args: args as never,
+            ...(gas ? { gas } : {}),
+          } as never),
+        );
         const receipt = await this.pub.waitForTransactionReceipt({
           hash: txHash,
           timeout: this.receiptTimeoutMs,
@@ -417,12 +442,15 @@ export class ViemPolicyChain implements PolicyChain {
     let critical: boolean | null = null;
     try {
       await agent.queue.run(async () => {
-        txHash = await agent.wallet.writeContract({
-          address: this.addr,
-          abi: vekilPolicyAbi,
-          functionName: "requestApproval",
-          args: [toChainOrder(parsed)],
-        });
+        txHash = await writeWithGasFallback((gas) =>
+          agent.wallet.writeContract({
+            address: this.addr,
+            abi: vekilPolicyAbi,
+            functionName: "requestApproval",
+            args: [toChainOrder(parsed)],
+            ...(gas ? { gas } : {}),
+          }),
+        );
         const receipt = await this.pub.waitForTransactionReceipt({
           hash: txHash,
           timeout: opts.timeoutMs,
