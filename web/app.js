@@ -217,10 +217,12 @@ function feedLine(e) {
       return ["Karar", `${tr(TR.action, x.action)} ${x.instId}${x.quoteAmount ? ` ${x.quoteAmount} TL` : ""}${d.naive ? " (Savunması kapatılmış ajan (test))" : ""} — ${x.thesis}`, ""];
     }
     case "preflight": return ["Ön kontrol", `${d.route === "CHAIN" ? "zincire" : d.route === "LOCAL_BLOCK" ? "YEREL ENGEL" : "yok"}${d.reasons?.length ? ": " + reasonText(d.reasons) : ""}${d.suspect ? " (şüpheli → kontrat karar verir)" : ""}`, d.route === "LOCAL_BLOCK" ? "bad" : ""];
-    case "chain_request":
-      if (d.status === "APPROVED") return ["Zincir", ["ONAYLANDI ", txLink(d.txHash)], "ok"];
-      if (d.status === "REJECTED") return ["Zincir", [`REDDEDİLDİ: ${reasonText(d.reasons)}${d.critical ? " — Kontrat freni çekti" : ""} `, txLink(d.txHash)], "bad"];
+    case "chain_request": {
+      const fin = d.approvalMs != null ? ` · zincirde ${msText(d.approvalMs)}` : "";
+      if (d.status === "APPROVED") return ["Zincir", [`ONAYLANDI${fin} `, txLink(d.txHash)], "ok"];
+      if (d.status === "REJECTED") return ["Zincir", [`REDDEDİLDİ: ${reasonText(d.reasons)}${d.critical ? " — Kontrat freni çekti" : ""}${fin} `, txLink(d.txHash)], "bad"];
       return ["Zincir", `Zincire istek gönderilemedi; emir yok (${d.error ?? ""})`, "bad"];
+    }
     case "execute": return ["Emir", `${d.result === "FILLED" ? "GERÇEKLEŞTİ" : d.result === "NOT_FILLED" ? "DOLMADI" : d.result === "UNKNOWN" ? "Emir durumu bilinmiyor" : "REDDEDİLDİ: " + tr(TR.reason, d.refusal)} ${d.clOrdId}`, d.result === "FILLED" ? "ok" : "bad"];
     case "fill": return ["Dolum", `${fmtNum(d.accFillSz)} @ ${fmtNum(d.avgPx)}${d.dust ? " (toz)" : ""}`, "ok"];
     case "exit": return ["Çıkış", `${tr(TR.exit, d.reason)}: ${fmtNum(d.soldSz)} @ ${fmtNum(d.avgPx)}, K/Z ${fmtTl(d.pnlQuote)} TL`, ""];

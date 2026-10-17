@@ -132,12 +132,13 @@ export class Vekil implements VekilCore {
   }
 
   /** Appends to the ledger and emits the matching SSE event with `seq`. Throws on ledger failure. */
-  private record(kind: LedgerKind, payload: object, opts: { cycleId?: string | null; test?: boolean } = {}): LedgerEntry {
+  private record(kind: LedgerKind, payload: object, opts: { cycleId?: string | null; test?: boolean; sse?: Record<string, unknown> } = {}): LedgerEntry {
     const cycleId = opts.cycleId ?? null;
     const test = opts.test ?? false;
     const e = this.d.ledger.append(kind, payload, { cycleId, test });
     const type = KIND_EVENT[kind];
-    if (type) this.emit(type, { ...(payload as Record<string, unknown>), kind, seq: e.seq }, { cycleId, test });
+    // `sse` adds display-only fields (e.g. the approval round-trip) to the event, never to the hashed ledger entry.
+    if (type) this.emit(type, { ...(payload as Record<string, unknown>), ...(opts.sse ?? {}), kind, seq: e.seq }, { cycleId, test });
     return e;
   }
 
@@ -471,8 +472,14 @@ export class Vekil implements VekilCore {
     return this.mutex.run(async () => {
       if (!test && this.st.status !== "RUNNING") return this.result(ctx, "LOCAL_BLOCK", ["HALTED"]);
       let res: ChainRequestResult;
+      let approvalMs: number | null = null;
       try {
-        res = await this.queue.push("approval", () => this.d.chain.requestApproval(order, { timeoutMs: APPROVAL_TIMEOUT_MS }));
+        res = await this.queue.push("approval", async () => {
+          const t0 = performance.now();
+          const r = await this.d.chain.requestApproval(order, { timeoutMs: APPROVAL_TIMEOUT_MS });
+          approvalMs = elapsed(t0); // send → receipt: Avalanche finality, shown in the feed
+          return r;
+        });
       } catch (e) {
         res = { ok: false, orderHash: "0x" + "0".repeat(64), error: errMsg(e) } as ChainRequestResult;
       }
@@ -481,7 +488,7 @@ export class Vekil implements VekilCore {
         order, orderHash: res.orderHash, txHash: res.ok ? res.txHash : null, status: res.ok ? res.status : "FAILED",
         reasonsMask: res.ok ? res.reasonsMask : 0, reasons, critical: res.ok ? res.critical : false,
         policyVersion: res.ok ? res.policyVersion : (view?.policyVersion ?? 0), worstCase: res.ok ? res.worstCase : null, error: res.ok ? null : res.error,
-      }, rec);
+      }, { ...rec, sse: { approvalMs } });
       if (!res.ok) {
         return this.result(ctx, "CHAIN_REQUEST_FAILED", ["CHAIN_REQUEST_FAILED"], { chain: { orderHash: res.orderHash, txHash: null, status: "FAILED", reasons: [], critical: false }, note: res.error });
       }
