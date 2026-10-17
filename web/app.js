@@ -54,6 +54,8 @@ async function api(method, path, body) {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const json = await res.json().catch(() => ({}));
+  // The server makes a new token on every start: a page opened before a restart carries the old one.
+  if (res.status === 401) throw new Error("Sunucu yeniden başlatıldı; sayfayı yenileyin (⌘R).");
   if (!res.ok) throw new Error(json.error || `${res.status}`);
   return json;
 }
@@ -83,6 +85,7 @@ const el = (tag, attrs = {}, ...kids) => {
   return n;
 };
 const hhmmss = (ms) => new Date(ms).toLocaleTimeString("tr-TR", { timeZone: "Europe/Istanbul" });
+const clipText = (s, n = 240) => (typeof s === "string" && s.length > n ? `${s.slice(0, n)}… (kısaltıldı)` : s);
 const fmtNum = (s) => (s == null ? "—" : String(s).replace(".", ","));
 /** TL amounts: 2 decimals, Turkish comma. */
 const fmtTl = (s) => (s == null ? "—" : Number(s).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -99,7 +102,7 @@ function msText(ms) {
 }
 function showAlert(a) {
   const box = $("alerts");
-  box.prepend(el("div", { class: "alert" }, `${a.tr}${a.details ? ": " + a.details : ""}`));
+  box.prepend(el("div", { class: "alert" }, `${a.tr}${a.details ? ": " + clipText(a.details) : ""}`));
   while (box.children.length > 4) box.lastChild.remove();
 }
 
@@ -127,8 +130,8 @@ function renderState(s) {
     for (const k of Object.keys(TR.field)) {
       let v = p[k];
       if (k === "instIds") v = v.join(", ");
-      if (k === "validUntil") v = new Date(v).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
-      tbody.append(el("tr", {}, el("th", {}, TR.field[k]), el("td", {}, fmtNum(v))));
+      const shown = k === "validUntil" ? new Date(v).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" }) : fmtNum(v);
+      tbody.append(el("tr", {}, el("th", {}, TR.field[k]), el("td", {}, shown)));
     }
   }
   $("policyVersion").textContent = `Sürüm ${s.chain?.policyVersion ?? 0}`;
@@ -201,7 +204,7 @@ setInterval(() => {
   const at = state?.agent?.nextCheckInAt;
   if (!at || state.status !== "RUNNING") return void ($("countdown").textContent = "—");
   const s = Math.max(0, Math.round((at - Date.now()) / 1000));
-  $("countdown").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  $("countdown").textContent = `${Math.floor(s / 60)} dk ${String(s % 60).padStart(2, "0")} sn sonra (${hhmmss(at).slice(0, 5)})`;
 }, 1000);
 
 // ---------------------------------------------------------------- feed
@@ -216,7 +219,7 @@ function feedLine(e) {
       if (!x) return ["Karar", d.error ? `Yapay zekâ servisine ulaşılamadı: ${d.error}` : "Ajan karar vermedi", "bad"];
       return ["Karar", `${tr(TR.action, x.action)} ${x.instId}${x.quoteAmount ? ` ${x.quoteAmount} TL` : ""}${d.naive ? " (Savunması kapatılmış ajan (test))" : ""} — ${x.thesis}`, ""];
     }
-    case "preflight": return ["Ön kontrol", `${d.route === "CHAIN" ? "zincire" : d.route === "LOCAL_BLOCK" ? "YEREL ENGEL" : "yok"}${d.reasons?.length ? ": " + reasonText(d.reasons) : ""}${d.suspect ? " (şüpheli → kontrat karar verir)" : ""}`, d.route === "LOCAL_BLOCK" ? "bad" : ""];
+    case "preflight": return ["Ön kontrol", `${d.route === "CHAIN" ? "zincire" : d.route === "LOCAL_BLOCK" ? "YEREL ENGEL" : "emir yok, zincire gerek yok"}${d.reasons?.length ? ": " + reasonText(d.reasons) : ""}${d.suspect ? " (şüpheli → kontrat karar verir)" : ""}`, d.route === "LOCAL_BLOCK" ? "bad" : ""];
     case "chain_request": {
       const fin = d.approvalMs != null ? ` · zincirde ${msText(d.approvalMs)}` : "";
       if (d.status === "APPROVED") return ["Zincir", [`ONAYLANDI${fin} `, txLink(d.txHash)], "ok"];
@@ -233,7 +236,7 @@ function feedLine(e) {
     case "policy": return ["Kurallar", `sürüm ${d.version} (${d.source}) Zincirde ✓`, "ok"];
     case "kill": return ["DURDUR", `Durduruldu: yerel ${msText(d.steps?.localMs)} · emirler ${msText(d.steps?.executorMs)} · zincir ${msText(d.steps?.chainMs)}${d.flattened ? " · pozisyonlar kapatıldı" : ""}`, "bad"];
     case "anchor": return ["Çapa", ["Merkle kökü zincirde #", `${d.fromSeq}–${d.toSeq} `, txLink(d.txHash)], "ok"];
-    case "alert": return ["Uyarı", `${d.tr}${d.details ? ": " + d.details : ""}`, "bad"];
+    case "alert": return ["Uyarı", `${d.tr}${d.details ? ": " + clipText(d.details) : ""}`, "bad"];
     case "redteam": return ["Kandırma testi", d.kind === "rogue" ? `${d.id}: ${tr(TR.outcome, d.result?.outcome)}` : "enjeksiyon testi bitti", ""];
     case "ask": return ["Soru", d.answer ?? "", ""];
     default: return null;
@@ -280,7 +283,8 @@ async function prove(seq) {
 
 // ---------------------------------------------------------------- verify / audit / red-team
 function renderVerify(r) {
-  $("checks").replaceChildren(...(r.checks ?? []).map((c) => el("li", { class: c.ok ? "pass" : "fail" }, `${c.id} ${c.tr}${c.details ? " (" + c.details + ")" : ""}`)));
+  const head = r.tamperSeq ? [el("li", { class: "warn" }, `Kurcalama testi: #${r.tamperSeq} kaydının bellekteki kopyası değiştirildi. Gerçek kayıt dosyası değişmedi; gerçek sonuç için "Doğrula".`)] : [];
+  $("checks").replaceChildren(...head, ...(r.checks ?? []).map((c) => el("li", { class: c.ok ? "pass" : "fail" }, `${r.tamperSeq ? "[kopya] " : ""}${c.id} ${c.tr}${c.details ? " (" + c.details + ")" : ""}`)));
   const fails = (r.failures ?? []).filter((f) => f.check !== "PROOF");
   const proofFail = (r.failures ?? []).find((f) => f.check === "PROOF");
   if (r.tamperSeq) $("proof").textContent = fails.length ? `Kurcalama yakalandı: #${fails[0].seq}` : "Kurcalama yakalanmadı!";
@@ -290,6 +294,7 @@ function renderVerify(r) {
 }
 function renderAudit(r) {
   $("auditSummary").textContent = `${r.ok ? "Tüm ajan emirleri onaylı" : "Onaysız emir bulundu"} · ${r.checkedOrders} emir · Kaynak: ${r.source}`;
+  if (!r.items.length) return void $("auditBody").replaceChildren(el("tr", {}, el("td", { colspan: "4" }, "Son 24 saatte ajan emri yok. İlk onaylı işlemden sonra burada zincirle eşleşmesi görünür.")));
   $("auditBody").replaceChildren(...r.items.map((i) => el("tr", {},
     el("td", {}, i.clOrdId), el("td", {}, i.kind === "MANUAL" ? "manuel (ajan dışı)" : i.kind), el("td", { class: `st-${i.kind === "MANUAL" ? "MANUAL" : i.status}` }, i.status === "PENDING" ? "bekliyor" : i.status), el("td", {}, i.detail))));
 }
