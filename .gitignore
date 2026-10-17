@@ -1,0 +1,23 @@
+# secrets
+.env
+.env.local
+.claude/settings.local.json
+
+# runtime data (copy what you want to keep into docs/evidence/)
+data/
+
+# reference sources (cloned for reading)
+refs/
+
+# build output
+node_modules/
+dist/
+coverage/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# misc
+*.log
+.DS_Store
+Thumbs.db

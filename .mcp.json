@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "okx-readonly": {
+      "type": "stdio",
+      "command": "okx-trade-mcp",
+      "args": ["--profile", "tr-read", "--modules", "market,account,spot", "--read-only"]
+    }
+  }
+}
