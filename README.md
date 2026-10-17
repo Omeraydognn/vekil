@@ -25,6 +25,19 @@ VEKİL, OKX TR hesabınızda AVAX-TRY spot işlem yapan otonom bir yapay zekâ a
 
 CEX'lerde ajan erişimi hızla açılıyor (OKX ATK, Binance, Bitget, Coinbase) ve hepsinde aynı güven sorunu var.
 
+**Herkese açık sayfa (anahtarsız):** `site/` klasörü Vercel'e konur. Ziyaretçi zincirdeki kuralları görür, "Kontrata sor" ile bir emri (kandırılmış yapay zekânın 10.000 TL DOGE emri dahil) kontrata simüle ettirir, kayıtları zincirde kendisi doğrular, bir emir kimliğini zincirde arar. Sayfa ve Guard API'si hiçbir anahtar tutmaz, hiçbir işlem göndermez. Ajanın kontrol paneli ise güvenlik gereği sadece sahibin bilgisayarında (127.0.0.1) çalışır.
+
+## Judging criteria → where VEKİL earns them
+
+| Criterion | Evidence |
+|---|---|
+| **Agentic design**: autonomy, reasoning and tool use | The agent picks its own next check-in, calls ATK read tools plus local indicator/context tools, and writes regime, playbook, evidence, scenarios and a lesson. Autonomous round trip on Fuji: decision → `OrderApproved` → executor fill → stop hit → `ExitRecorded`, with no human step (see evidence below). |
+| **Technical execution**: deployed, architecture, difficulty | VekilPolicy on Fuji; public keyless site + Guard API (`site/`, Vercel). Trust layers: read-only LLM, on-chain judge, isolated executor, auditor. 101 forge tests (fuzz, invariant, overflow), 355 TS tests, `pnpm smoke` on a real anvil contract, TS↔Solidity hash parity vectors, on-chain Merkle proofs. |
+| **Avalanche**: C-Chain, its strengths | Every entry is approved or rejected on C-Chain (Fuji). Sub-second finality makes per-order approval practical: the dashboard shows the approval round trip ("zincirde 2,8 sn"). Merkle anchors and `verifyEntry` proofs. ERC-8004 identity (`pnpm register-agent`). |
+| **OKX**: agent tooling, OKX.AI service | OKX Agent Trade Kit: read-only instance for the agent and core, trade instance only in the executor, tool allowlist and manifest lock, verified on OKX TR. **VEKİL Guard** is a keyless HTTP service with a manifest (`/.well-known/vekil-guard.json`), ready to list on OKX.AI. |
+| **Innovation and value** | Rules live in a public contract, not inside the agent; a fooled agent is rejected on-chain and the brake trips by itself. Problem: the OKX TR API agreement puts risk-control and prompt-injection duties on the user. Users: retail "ek kart", agent builders. Business model above. |
+| **Demo and UX** | Turkish dashboard with a 4-step guide and plain-language status; the public site lets anyone try to fool the contract safely. |
+
 ## How it works
 
 ```
@@ -121,6 +134,17 @@ On the Fuji dev contract this answers `REJECT` with `INSTRUMENT_NOT_ALLOWED`, `O
 | `POST /v1/policy/propose` | Turkish rules → policy draft (never applied; only the owner signs `setPolicy`) |
 
 **Business model:** a per-check fee or subscription for agents and agent platforms, and a B2B policy-layer API for exchanges. Every CEX opening up to agents (OKX ATK, Binance, Bitget, Coinbase) has the same trust problem. `GUARD_PRICE=0.01` turns on a simulated HTTP 402 "pay per check" flow.
+
+## Public site (Vercel) and ERC-8004
+
+`site/` is a separate, keyless Vercel project: a static page plus Guard API functions (`/api/policy`, `/api/check`, `/api/audit`, `/.well-known/vekil-guard.json`). It only reads the VekilPolicy contract over the public Fuji RPC and simulates `requestApproval` with `eth_call`. Optional env on Vercel: `VEKIL_POLICY_ADDRESS` (default: the dev contract) and `FUJI_RPC_URL`.
+
+```bash
+pnpm export:proofs         # refresh site/proofs.json (anchored ledger entries + Merkle proofs) before deploying
+cd site && vercel deploy --prod
+```
+
+ERC-8004 identity on Fuji (registry ABI verified on-chain: `register(string)`, ERC-721 mint): `pnpm register-agent --dry-run` simulates, then `pnpm register-agent` registers the agent card (`docs/agent-card.json`, as a `data:` URI) and links it with `VekilPolicy.setAgentId`. One confirmation covers both txs; a re-run after a timeout resumes the sent tx (never mints twice).
 
 ## LLM providers
 

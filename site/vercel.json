@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [{ "source": "/.well-known/vekil-guard.json", "destination": "/api/manifest" }],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "x-content-type-options", "value": "nosniff" },
+        { "key": "content-security-policy", "value": "default-src 'self'; script-src 'self' https://esm.sh; connect-src 'self' https://esm.sh https://avalanche-fuji-c-chain-rpc.publicnode.com https://api.avax-test.network; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'" },
+        { "key": "referrer-policy", "value": "no-referrer" }
+      ]
+    }
+  ]
+}

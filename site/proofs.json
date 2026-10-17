@@ -1,0 +1,251 @@
+{
+ "contract": "0x75c9b0155b0b026f869351ab3450723c44e57999",
+ "chainId": 43113,
+ "generatedAt": 1792245427318,
+ "items": [
+  {
+   "seq": 2,
+   "ts": 1792233447605,
+   "kind": "POLICY",
+   "test": false,
+   "summary": "Kurallar sürüm 1 zincire yazıldı",
+   "txHash": null,
+   "entryHash": "0x3ed6d1d817dcdec297018958deeef572d3bbc901f2c116abd422ce89ac82aa13",
+   "anchorIndex": 0,
+   "root": "0x7986854d103d0d2e4a21028981266813a8c333995547b41c882849e30e33863e",
+   "proof": [
+    "0xca1063d3bfd19b9fab2929753e96596e56dbb84c45c7c042af663017309a98a0",
+    "0xf92fa2f65ca8c97e0aa55e1f95a36a139e4c7305c6d9b5ac834d72da754a46c9",
+    "0x84573c41e86a53e593ee952555495faf4bfa439a7add9486d8698403de2e2f81"
+   ]
+  },
+  {
+   "seq": 8,
+   "ts": 1792234486047,
+   "kind": "POLICY",
+   "test": false,
+   "summary": "Kurallar sürüm 2 zincire yazıldı",
+   "txHash": "0x2d632535df2888878810bc93924066ea95be9b8f02de70d1d72b7119b4ba4860",
+   "entryHash": "0x0bde68417d3e6e6d645ff1fe059fbc491f15ce1856799693079d446d76fb6870",
+   "anchorIndex": 1,
+   "root": "0xc53c445a6483a5ffc5b94803da2ca9876bc5911bf75294751374c1b183399b2d",
+   "proof": [
+    "0x0ff27f2fad32d8cde049e4636f0b9858dff15c3e6ac0aa7a388a7536d2418070",
+    "0xd5c46530f807c259b4ed3688ba2b06eb7bfb4b5ba3fded306b9288dbe24d1928"
+   ]
+  },
+  {
+   "seq": 16,
+   "ts": 1792235448066,
+   "kind": "KILL",
+   "test": false,
+   "summary": "DURDUR (kill switch)",
+   "txHash": "0xf22c2c9d03bb956dad6e43d814546d9a7e714c90db9d99932a391415524bd7d8",
+   "entryHash": "0x76867833173b53f409abb8a9f485db8f92ba1caf2323ab7a9f1ca247433ff5ca",
+   "anchorIndex": 2,
+   "root": "0xcca5a3eee75428d2bfcecd1ce26af87e35dd809c48b02b57731175bc49d7ed02",
+   "proof": [
+    "0x94c17e2071d7b76ee41ea2ba63e6e695dfe26479709f918e9cc3257f39035bc3",
+    "0x3d080dafb4a3a6161ee522550811cc414d37b10b344a523506f744dda2e6cfa5"
+   ]
+  },
+  {
+   "seq": 41,
+   "ts": 1792238384933,
+   "kind": "POLICY",
+   "test": false,
+   "summary": "Kurallar sürüm 3 zincire yazıldı",
+   "txHash": "0xdfce1ca975af5ccbf6d2664e942e5599eaf39467548b97ecdb0953550680c076",
+   "entryHash": "0x2a50f733c813a6e63bc20a6e1be94015de95d0b5b4d54f2b30fe46d35ae8dd9e",
+   "anchorIndex": 4,
+   "root": "0xbc8c3b215fc9034280ed46bf4808f9f6f7b6732587672f9ef18f89135db3dad6",
+   "proof": [
+    "0xab78efeea5f61db8fd4438a7836d382a2972196aa798f29443e479a65b5207b3",
+    "0xeab537020d545b5fc3c83eb7346a05a0417b56eedf9c03e1ccb89f4555d4e3b7",
+    "0xbc7b190bb6dac35daffbc18859e7c0c1fba9fe74e5aa2b00f6dd6fe1eb62be14",
+    "0x188b273d90640a2546f9cbf0efc7ccc28840714815d640214aa66403809536cc",
+    "0x0edf8669c039d173583b6db9cbb7e313b54185a5041dfc0fdb12010ae05140ad"
+   ]
+  },
+  {
+   "seq": 56,
+   "ts": 1792238794852,
+   "kind": "CHAIN_REQUEST",
+   "test": true,
+   "summary": "REDDEDİLDİ: DOGE-TRY 2516.356 @ 3.974 (INSTRUMENT_NOT_ALLOWED, ORDER_TOO_LARGE, STOP_MISSING)",
+   "txHash": "0x4c254b825fb099417e40aa1f82ba596ce16cc3bcce9f5d0fbaeb27beaa2bf38c",
+   "entryHash": "0xd3a195a61649a375b5bb75ecb49fffbee8b1d6c5982777cb6e1979d380158a03",
+   "anchorIndex": 4,
+   "root": "0xbc8c3b215fc9034280ed46bf4808f9f6f7b6732587672f9ef18f89135db3dad6",
+   "proof": [
+    "0x2357576c0a6505b2334cc5e248f94b3b367d78434efbd00c9120c11ac29fc9b0",
+    "0x78650eaf8218790333bd75c4a730fae10f49036e40fc9ccd237a62a9b2c10a07",
+    "0x3e3aa52551b4e8802af2e3b5170c3bbde3977f0599e5d51a39618bebefd1791c",
+    "0x937223ab63af45e92d6be42e3be622a3c9ca854da86147e052a09ee130113345"
+   ]
+  },
+  {
+   "seq": 57,
+   "ts": 1792238794867,
+   "kind": "KILL",
+   "test": false,
+   "summary": "DURDUR (kill switch)",
+   "txHash": null,
+   "entryHash": "0x98ea957f892862743c7cf883234ee98410606ce31b6f1fc9ff089f1dfb6e6b6f",
+   "anchorIndex": 4,
+   "root": "0xbc8c3b215fc9034280ed46bf4808f9f6f7b6732587672f9ef18f89135db3dad6",
+   "proof": [
+    "0xa2121b1971fa69f53626310fe04c5ec54888c5b6c42f777756105044814441eb",
+    "0x3e3aa52551b4e8802af2e3b5170c3bbde3977f0599e5d51a39618bebefd1791c",
+    "0x937223ab63af45e92d6be42e3be622a3c9ca854da86147e052a09ee130113345"
+   ]
+  },
+  {
+   "seq": 92,
+   "ts": 1792242388003,
+   "kind": "POLICY",
+   "test": false,
+   "summary": "Kurallar sürüm 4 zincire yazıldı",
+   "txHash": "0xb9d2ba3e3760e7af7b4c18205fe27a6bd99bee734e03be8567bb4ec5759c9e7a",
+   "entryHash": "0x7bfa950b81d8a5a92bde4db2808ac7e09e59f459b8a896e056a4ca62ec201bdf",
+   "anchorIndex": 10,
+   "root": "0x4a636d33edd2de72cb379573313856d07f0e81d9823efbe0bdc1c64f80a93734",
+   "proof": [
+    "0x320d5a0596dd66f634460fd8ff75919043405414ddfffd6cc12ed96308ef3fec",
+    "0xf0d3adc9ab555063536fe2f75c184fb87203f99eed96d4a5ba1d3a219a6d0f5e",
+    "0xff50951358a148d23ef5a527e11ed1cd8f47c7f0888609702fc6de0651115500",
+    "0x742c15bb444bc9d22f5067d0823b878185ed420ab78c0fcd950eb0105eb28d8e",
+    "0x10e3b6cdbc41d7e2ceda66a1f4ee5adfb0c4c5780ebd44ed6c8c0fd1501c7fd3",
+    "0x81420f879342e1f5047a3811cd97fefea77536a5f1eebe2b48343206268605be"
+   ]
+  },
+  {
+   "seq": 97,
+   "ts": 1792242425868,
+   "kind": "CHAIN_REQUEST",
+   "test": false,
+   "summary": "ONAYLANDI: AVAX-TRY 0.15312 @ 489.8",
+   "txHash": "0x14c4f3e73947f4bb5226ef96fd70590af91710346077c53215b22daa1dbe2e27",
+   "entryHash": "0x10bff8f7f6bdf92b3e454e91cf6cb0a907070e6fc29287bee290c3805c6d9fc8",
+   "anchorIndex": 10,
+   "root": "0x4a636d33edd2de72cb379573313856d07f0e81d9823efbe0bdc1c64f80a93734",
+   "proof": [
+    "0xabceff9f71f40b8a27a7e00820dcfb3ca07d60a9f0a9d1b395caaecf2d0f9aa9",
+    "0x5e8900c7bbd01a09bc6825559a6246d688fab4c64b877122b6fef45b8d0af438",
+    "0xe6ed6ea918146d898b1faa635af899569b1c192071624ccf2f3adf6cf036ad70",
+    "0x94ac1b3fad6e115415123e9a01b37cf42abb1f91ae3c3669c01e5282a535b90b",
+    "0x10e3b6cdbc41d7e2ceda66a1f4ee5adfb0c4c5780ebd44ed6c8c0fd1501c7fd3",
+    "0x81420f879342e1f5047a3811cd97fefea77536a5f1eebe2b48343206268605be"
+   ]
+  },
+  {
+   "seq": 98,
+   "ts": 1792242427138,
+   "kind": "EXECUTE",
+   "test": false,
+   "summary": "Emir FILLED: vbffa58a67ced49840161d6f72306e8",
+   "txHash": null,
+   "entryHash": "0x81bf1e67b38d7bba0e295ff8433e5481bfb60dc7bca66f441521f5e43d5dd942",
+   "anchorIndex": 10,
+   "root": "0x4a636d33edd2de72cb379573313856d07f0e81d9823efbe0bdc1c64f80a93734",
+   "proof": [
+    "0x144522b32ffa0aa43bd6b03dfbf0c3811beac6671c361f1fe59630fc1f10f688",
+    "0xa3cc55e55dc18bacee7888c6f68921f016cb460b8c9678029fd724de82b81bc7",
+    "0x352548307efb2de7705dfea1531f8970833b78ab57a95ef26654358f71279fd3",
+    "0x94ac1b3fad6e115415123e9a01b37cf42abb1f91ae3c3669c01e5282a535b90b",
+    "0x10e3b6cdbc41d7e2ceda66a1f4ee5adfb0c4c5780ebd44ed6c8c0fd1501c7fd3",
+    "0x81420f879342e1f5047a3811cd97fefea77536a5f1eebe2b48343206268605be"
+   ]
+  },
+  {
+   "seq": 100,
+   "ts": 1792242470948,
+   "kind": "EXIT",
+   "test": false,
+   "summary": "Çıkış (STOP_HIT): 0.15278 @ 487.9, K/Z -0.55801689 TL",
+   "txHash": null,
+   "entryHash": "0x8ef3f50981255ea62134d0a999e47950f757ba8868e5205dca0e0f681b61b0a1",
+   "anchorIndex": 10,
+   "root": "0x4a636d33edd2de72cb379573313856d07f0e81d9823efbe0bdc1c64f80a93734",
+   "proof": [
+    "0x7da61ae492369930401bdfac2d38ff6b0d4a6353eba1605d5db594457622aa6b",
+    "0xcf3cc0a104502656fd4a028e50044002854ec550f18b7a092d754fc6bb4b85b2",
+    "0x352548307efb2de7705dfea1531f8970833b78ab57a95ef26654358f71279fd3",
+    "0x94ac1b3fad6e115415123e9a01b37cf42abb1f91ae3c3669c01e5282a535b90b",
+    "0x10e3b6cdbc41d7e2ceda66a1f4ee5adfb0c4c5780ebd44ed6c8c0fd1501c7fd3",
+    "0x81420f879342e1f5047a3811cd97fefea77536a5f1eebe2b48343206268605be"
+   ]
+  },
+  {
+   "seq": 101,
+   "ts": 1792242473992,
+   "kind": "EXIT_RECORDED",
+   "test": false,
+   "summary": "Çıkış zincirde kayıtlı",
+   "txHash": "0xc05124ca39411d621b4d1eeeaaccb26b4a5f6eaf08604ffd1c0de3d680ceab6e",
+   "entryHash": "0xecbf0e06cb365cdd82138c4a6c6c919cf9fe5c26f40bf661b446065c62715c88",
+   "anchorIndex": 10,
+   "root": "0x4a636d33edd2de72cb379573313856d07f0e81d9823efbe0bdc1c64f80a93734",
+   "proof": [
+    "0x68d6f0d8fb53324b141f7cc41a1f6a478310a28f89d8710027d01d1cbcf73abb",
+    "0xcf3cc0a104502656fd4a028e50044002854ec550f18b7a092d754fc6bb4b85b2",
+    "0x352548307efb2de7705dfea1531f8970833b78ab57a95ef26654358f71279fd3",
+    "0x94ac1b3fad6e115415123e9a01b37cf42abb1f91ae3c3669c01e5282a535b90b",
+    "0x10e3b6cdbc41d7e2ceda66a1f4ee5adfb0c4c5780ebd44ed6c8c0fd1501c7fd3",
+    "0x81420f879342e1f5047a3811cd97fefea77536a5f1eebe2b48343206268605be"
+   ]
+  },
+  {
+   "seq": 102,
+   "ts": 1792242636969,
+   "kind": "POLICY",
+   "test": false,
+   "summary": "Kurallar sürüm 5 zincire yazıldı",
+   "txHash": "0x2ee6b130c211e0d4219a22a64bf5db31aa0da5604172bdbbcd71ec876fdfacc6",
+   "entryHash": "0xd640c856d8410177694aaadd6719c1a34062f577e016b564233c31b96794f5e7",
+   "anchorIndex": 10,
+   "root": "0x4a636d33edd2de72cb379573313856d07f0e81d9823efbe0bdc1c64f80a93734",
+   "proof": [
+    "0x146c9b091550ce12fd764731116700da9b712ea08960c65b0f0f459f69bd6f86",
+    "0x3ac99d439367e7b1de6c317104dc3856d84154cbd85938248b701155e668af65",
+    "0x9b9a23db33b94718cb8103c79fa14a6f4c3f6259717f643c62286b87f18cea68",
+    "0x8d10e78fc9eafeb10a4218d6f0e3d05f8b29b48689072af2cdf4614df3a9e624",
+    "0xa55cf58e864deb1ee53f630ba3cb31f521a4c35579819b80e5c9f5f7b1cb075c",
+    "0x81420f879342e1f5047a3811cd97fefea77536a5f1eebe2b48343206268605be"
+   ]
+  },
+  {
+   "seq": 110,
+   "ts": 1792242997989,
+   "kind": "POLICY",
+   "test": false,
+   "summary": "Kurallar sürüm 6 zincire yazıldı",
+   "txHash": "0xbb940c6b962c8cd4b7016bff35f746a452f2126a4f00c9c960d9ddedbb464f1b",
+   "entryHash": "0x740360dd436025517809e328f51487c7df9a9eb3e6b5ba055ecbdbe04274a4ea",
+   "anchorIndex": 10,
+   "root": "0x4a636d33edd2de72cb379573313856d07f0e81d9823efbe0bdc1c64f80a93734",
+   "proof": [
+    "0xb0716ce7e3ff0faae6bbbacabe968abbd6ee3612be03ce37573cab9a9106039d",
+    "0x44a8b92d85c9dca500d3a97f4d083692a1f9eec80ddda21c080ce6f6df0d9c58",
+    "0x85164134f48f825a3548dbb2cc782116ad7c38f6d706a4c71ff5cd69b082d149",
+    "0xdc1fd91637a274c0b3b912c41d27033574f4fa6d9e5c0abd72ecfb5da261d5cb",
+    "0xa55cf58e864deb1ee53f630ba3cb31f521a4c35579819b80e5c9f5f7b1cb075c",
+    "0x81420f879342e1f5047a3811cd97fefea77536a5f1eebe2b48343206268605be"
+   ]
+  },
+  {
+   "seq": 118,
+   "ts": 1792243446856,
+   "kind": "POLICY",
+   "test": false,
+   "summary": "Kurallar sürüm 7 zincire yazıldı",
+   "txHash": "0xd600a7f3cdcf20e05f940d40ab3e986a3cd9dc2e60d9241dcca55c4ae9c907bd",
+   "entryHash": "0x95698c335ef03e5ef219fc6510d7de1a3127f83ac213a886cdca094ea4374a38",
+   "anchorIndex": 10,
+   "root": "0x4a636d33edd2de72cb379573313856d07f0e81d9823efbe0bdc1c64f80a93734",
+   "proof": [
+    "0x2516b16d70cf9cee0a75cdcac5568dcc1d5b4031b43e0e03ee35c528b3ad300c"
+   ]
+  }
+ ]
+}

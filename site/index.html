@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VEKİL — Kuralın zincirde, yapay zekâ sınırda</title>
+  <meta name="description" content="VEKİL: OKX TR'de işlem yapan otonom yapay zekâ ajanı. Kurallar Avalanche'taki kontratta; her emir zincirde onaylanır, kötü niyetli emir reddedilir ve fren çekilir.">
+  <meta name="theme-color" content="#122315">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#">vekil<span aria-hidden="true">✳</span></a>
+    <nav aria-label="Bölümler"><a href="#kontrat">Kontrat</a><a href="#sor">Kontrata sor</a><a href="#kanit">Kanıtlar</a><a href="#nasil">Nasıl çalışır</a></nav>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">OKX TR × AVALANCHE · OTONOM AJAN</p>
+      <h1>Kuralı sen yazarsın.<br><span>Kontrat uygular.</span></h1>
+      <p class="lead">VEKİL, OKX TR hesabında AVAX-TRY alıp satan bir yapay zekâ ajanı. Sahibinin Türkçe yazdığı kurallar Avalanche'taki <b>VekilPolicy</b> kontratına yazılır. Ajanın her alım isteği önce bu kontrattan geçer. Kural dışı istek reddedilir ve kalıcı olarak kaydedilir; kötü niyetli bir istek gelirse kontrat freni kendisi çeker.</p>
+      <p class="note">Bu sayfa <b>anahtar tutmaz</b>: kontrata doğrudan, herkese açık Avalanche ağından bakar. Hiçbir işlem göndermez, kimsenin parasına ya da ajanına dokunamaz.</p>
+      <div class="cta"><a class="button primary" href="#sor">Kontratı kandırmayı dene ↓</a><a class="button" id="contractLink" target="_blank" rel="noopener">Kontrat Snowtrace'te ↗</a></div>
+    </div>
+  </section>
+
+  <main class="wrap">
+    <section id="kontrat" class="card">
+      <div class="head"><span class="num">01</span><h2>Zincirdeki kurallar</h2><span id="live" class="pill">bağlanıyor…</span></div>
+      <p class="intro">Ajanın şu an tabi olduğu kurallar. Bunları yalnızca sahibi değiştirebilir; ajan değiştiremez.</p>
+      <blockquote id="sourceText" class="source">—</blockquote>
+      <div class="grid2">
+        <table class="kv" id="rules"></table>
+        <table class="kv" id="today"></table>
+      </div>
+      <p class="muted small" id="chainMeta"></p>
+    </section>
+
+    <section id="sor" class="card dark">
+      <div class="head"><span class="num">02</span><h2>Kontrata sor: bu emri onaylar mı?</h2></div>
+      <p class="intro">Bir emir yaz ya da hazır örneklerden birini seç. Kontratın kural motoru bu emri <b>şu anki</b> kurallar, sayaçlar ve risk bütçesiyle değerlendirir. Bu bir simülasyondur (eth_call): borsaya ya da zincire hiçbir şey gönderilmez.</p>
+      <div class="presets">
+        <button data-preset="ok">Kurallara uygun emir</button>
+        <button data-preset="rogue" class="danger">Kandırılmış yapay zekâ: 10.000 TL DOGE, zarar-kes yok</button>
+        <button data-preset="wide">Zarar-kes çok uzak</button>
+        <button data-preset="big">Tutar sınırın 1,5 katı</button>
+      </div>
+      <form id="checkForm" class="form">
+        <label>Çift<input name="instId" value="AVAX-TRY" required></label>
+        <label>Fiyat (TRY)<input name="px" value="490" required inputmode="decimal"></label>
+        <label>Miktar (AVAX)<input name="sz" value="0.15" required inputmode="decimal"></label>
+        <label>Zarar-kes (boş = yok)<input name="stopPx" value="475" inputmode="decimal"></label>
+        <label>Kâr-al (boş = yok)<input name="tpPx" value="520" inputmode="decimal"></label>
+        <button type="submit" class="primary">Kontrata sor</button>
+      </form>
+      <div id="result" class="result" aria-live="polite"></div>
+    </section>
+
+    <section id="kanit" class="card">
+      <div class="head"><span class="num">03</span><h2>Kanıtlar: kendin doğrula</h2></div>
+      <p class="intro">Ajanın her adımı zincirleme bir kayıt defterine yazılır; defterin özeti (Merkle kökü) düzenli olarak Avalanche'a mühürlenir. Aşağıdaki kayıtlardan birinde <b>Zincirde doğrula</b>'ya bas: tarayıcın kontrata sorar ve kontrat o kaydın mühürde olup olmadığını kendisi söyler.</p>
+      <div class="table-scroll"><table class="proofs"><thead><tr><th>Kayıt</th><th>Ne oldu</th><th>İşlem</th><th></th></tr></thead><tbody id="proofs"></tbody></table></div>
+      <h3>Emir denetimi</h3>
+      <p class="intro">OKX'teki her ajan emrinin kimliği (clOrdId) zincirdeki onaydan türetilir. Bir emir kimliği yapıştır ve zincirde onayı var mı bak.</p>
+      <form id="auditForm" class="form inline"><input name="clOrdId" value="vbffa58a67ced49840161d6f72306e8" aria-label="clOrdId"><button type="submit">Zincirde ara</button></form>
+      <div id="auditResult" class="result"></div>
+    </section>
+
+    <section id="nasil" class="card">
+      <div class="head"><span class="num">04</span><h2>Nasıl çalışır</h2></div>
+      <ol class="flow">
+        <li><b>Sahip kuralını Türkçe yazar.</b> Yapay zekâ bunu kontrat alanlarına çevirir, sahip onaylar, kural Avalanche'a yazılır (Türkçe metin olayın içinde).</li>
+        <li><b>Ajan piyasayı okur.</b> OKX Agent Trade Kit'in yalnızca okuma araçlarıyla; rejimi, planı ve kanıtları gerekçesiyle birlikte yazar.</li>
+        <li><b>Her alım için kontrata sorar.</b> Kontrat onaylar ya da reddeder; ikisi de zincirde kalır. Kötü niyetli istekte fren kendiliğinden çekilir.</li>
+        <li><b>Emir gönderici sadece zincirin onayladığını yapar.</b> İşlem anahtarı yalnızca onda; emri göndermeden önce onayı zincirden kendisi tekrar kontrol eder.</li>
+        <li><b>Herkes doğrulayabilir.</b> Kayıtlar zincire mühürlenir, borsadaki her emir zincirdeki bir onayla eşleşir.</li>
+      </ol>
+      <p class="muted small">Güvenlik gereği ajanın kontrol paneli internete açık değildir: anahtar tutan süreç yalnızca sahibin bilgisayarında çalışır. Bu sayfa ve <a href="/.well-known/vekil-guard.json">VEKİL Guard API</a>'si anahtarsızdır. Kaynak: <a href="https://github.com/Omeraydognn/vekil" target="_blank" rel="noopener">GitHub</a>.</p>
+    </section>
+  </main>
+  <footer class="wrap"><span>vekil ✳ Akıl vekilinde. Kontrol sende.</span><span id="erc"></span></footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "VEKİL",
+  "description": "Autonomous AVAX-TRY spot agent on OKX TR (Agent Trade Kit). The owner's Turkish rules live in the VekilPolicy contract on Avalanche; every order needs an on-chain approval, critical violations pause the agent, and an isolated executor trades only what the chain approved.",
+  "endpoints": [
+    {
+      "name": "agentWallet",
+      "endpoint": "eip155:43113:0x29c298e70cb3fbaa0cf484c5e9a744c283e04f86"
+    },
+    {
+      "name": "VekilPolicy",
+      "endpoint": "eip155:43113:0x75c9b0155b0b026f869351ab3450723c44e57999"
+    },
+    {
+      "name": "source",
+      "endpoint": "https://github.com/Omeraydognn/vekil"
+    }
+  ],
+  "registrations": [
+    {
+      "agentRegistry": "eip155:43113:0x8004a818bfb912233c491871b3d84c89a494bd9e"
+    }
+  ],
+  "supportedTrust": [
+    "crypto-economic"
+  ]
+}

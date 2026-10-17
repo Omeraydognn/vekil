@@ -1,4 +1,5 @@
 // VEKİL core (SPEC §15–§17): cycle pipeline, executor sync, kill switch, owner exits, anchoring,
+import { checkOrder, CheckBodySchema, type CheckResult, type GuardChain } from "../guard/guard.js";
 // core chain watcher and Text-to-Policy. Core only ASKS the chain; the contract judges.
 import { randomBytes } from "node:crypto";
 import { injectionText } from "../agent/redteam.js";
@@ -935,6 +936,15 @@ export class Vekil implements VekilCore {
     const r = await this.d.verify({ entries: this.d.ledger.readAll(), chain: this.d.chain, ...opts });
     this.emit("verify", { ...r, tamperSeq: opts.tamperSeq ?? null, proveSeq: opts.proveSeq ?? null });
     return r;
+  }
+
+  /** VEKİL Guard inside the dashboard: simulate requestApproval for an arbitrary order (eth_call, no tx). */
+  async guardCheck(body: unknown): Promise<CheckResult> {
+    const chain = this.d.chain as typeof this.d.chain & Partial<Pick<GuardChain, "simulateApproval">>;
+    if (typeof chain.simulateApproval !== "function") throw new CoreError(501, "Kontrata sor bu zincirde yok (sahte zincir)");
+    const parsed = CheckBodySchema.safeParse(body);
+    if (!parsed.success) throw new CoreError(400, parsed.error.issues.map((i) => `${i.path.join(".") || "gövde"}: ${i.message}`).join("; "));
+    return checkOrder({ chain: chain as GuardChain, now: () => this.d.clock.now() }, parsed.data);
   }
 
   async audit(): Promise<AuditReport> {

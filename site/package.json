@@ -1,0 +1,10 @@
+{
+  "name": "vekil-site",
+  "private": true,
+  "type": "module",
+  "description": "VEKİL public, keyless site and Guard API (Vercel). Holds no keys; only reads the VekilPolicy contract.",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "viem": "2.57.7"
+  }
+}

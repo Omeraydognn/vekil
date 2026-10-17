@@ -158,6 +158,7 @@ export function coreApp(o: CoreServerOpts): express.Express {
     core.requestAnchor();
     res.json({ queued: true });
   });
+  app.post("/api/guard/check", wrap(async (req, res) => void res.json(await core.guardCheck(req.body ?? {}))));
   app.get("/api/audit", wrap(async (_req, res) => void res.json(await core.audit())));
   app.post("/api/redteam/injection", wrap(async (_req, res) => {
     try {

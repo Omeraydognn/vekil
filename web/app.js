@@ -510,3 +510,57 @@ async function backfill() {
 }
 api("GET", "/api/state").then(renderState).then(backfill).catch(() => undefined).finally(connect);
 $("feedAll").addEventListener("change", (ev) => $("feed").classList.toggle("show-all", ev.target.checked));
+
+// ---------------------------------------------------------------- pages (hash router)
+const PAGES = ["panel", "guard", "dogrula", "test"];
+function showPage() {
+  const raw = location.hash.slice(1) || "panel";
+  // A card anchor (e.g. #cardWrite) opens the page that holds it.
+  const target = PAGES.includes(raw) ? null : document.getElementById(raw);
+  const page = PAGES.includes(raw) ? raw : target?.closest("[data-page]")?.dataset.page ?? "panel";
+  for (const m of document.querySelectorAll("main.page")) m.classList.toggle("active", m.dataset.page === page);
+  for (const a of document.querySelectorAll("[data-tab]")) a.classList.toggle("active", a.dataset.tab === page);
+  document.body.classList.toggle("on-panel", page === "panel");
+  if (target) target.scrollIntoView({ block: "start" });
+  else if (PAGES.includes(raw) && raw !== "panel") window.scrollTo({ top: 0 });
+}
+window.addEventListener("hashchange", showPage);
+showPage();
+
+// ---------------------------------------------------------------- VEKİL Guard page
+const GUARD_PRESETS = {
+  ok: () => ({ instId: "AVAX-TRY", px: "490", sz: (Math.min(Number(state?.policy?.maxOrderQuote ?? 75), 75) / 490).toFixed(4), stopPx: "475", tpPx: "520" }),
+  rogue: () => ({ instId: "DOGE-TRY", px: "7.007", sz: "1427.14428", stopPx: "", tpPx: "" }),
+  wide: () => ({ instId: "AVAX-TRY", px: "490", sz: "0.1", stopPx: "400", tpPx: "520" }),
+  big: () => ({ instId: "AVAX-TRY", px: "490", sz: ((Number(state?.policy?.maxOrderQuote ?? 200) * 1.5) / 490).toFixed(4), stopPx: "475", tpPx: "520" }),
+};
+for (const b of document.querySelectorAll("[data-guard]")) {
+  b.addEventListener("click", () => {
+    const f = $("guardForm");
+    for (const [k, val] of Object.entries(GUARD_PRESETS[b.dataset.guard]())) f.elements[k].value = val;
+    f.requestSubmit();
+  });
+}
+$("guardForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = new FormData(ev.target);
+  const clean = (k) => String(f.get(k) ?? "").trim().replace(",", ".");
+  const body = { instId: clean("instId").toUpperCase(), px: clean("px"), sz: clean("sz") };
+  for (const k of ["stopPx", "tpPx"]) if (clean(k)) body[k] = clean(k);
+  const out = $("guardResult");
+  out.replaceChildren(el("p", { class: "muted" }, "Kontrata soruluyor…"));
+  try {
+    const j = await api("POST", "/api/guard/check", body);
+    const ok = j.verdict === "APPROVE";
+    const box = el("div", { class: `verdict ${ok ? "ok" : "bad"}` },
+      el("div", { class: "big" }, ok ? "ONAYLAR ✓" : "REDDEDER ✗"),
+      el("div", {}, `${body.instId} · ${fmtNum(body.sz)} × ${fmtNum(body.px)} TRY = ${fmtTl(j.notional)} TL`));
+    if (!ok) box.append(el("ul", {}, ...j.reasons.map((r) => el("li", {}, r.tr))));
+    if (j.critical) box.append(el("p", { class: "brake" }, j.wouldPause ? "Kritik ihlal: gerçek bir istek olsaydı kontrat freni kendisi çekerdi ve vekil dururdu." : "Kritik ihlal (fren zaten aktif)."));
+    if (ok && j.worstCase) box.append(el("p", {}, `Zarar-kese kadar en kötü kayıp (komisyon dahil): ${fmtTl(j.worstCase)} TL; günlük risk bütçesinden düşülür.`));
+    box.append(el("p", { class: "muted" }, `Kurallar sürüm ${j.policyVersion} · blok ${j.chain.blockNumber} · simülasyon: hiçbir şey gönderilmedi.`));
+    out.replaceChildren(box);
+  } catch (e) {
+    out.replaceChildren(el("p", { class: "brake" }, `Hata: ${e.message}`));
+  }
+});

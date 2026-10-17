@@ -31,7 +31,8 @@
     "probe:agent": "tsx scripts/probe-agent.ts",
     "probe:policy": "tsx scripts/probe-policy.ts",
     "probe:chain": "tsx scripts/probe-chain.ts",
-    "evidence": "tsx scripts/evidence.ts"
+    "evidence": "tsx scripts/evidence.ts",
+    "export:proofs": "tsx scripts/export-proofs.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
