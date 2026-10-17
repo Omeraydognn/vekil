@@ -1,0 +1,506 @@
+// Chain client for VekilPolicy (SPEC §13.2). No bigint leaves this module: every output is a
+// number (after a safe-integer check), a Dec string or a lowercase hex string.
+import {
+  createPublicClient,
+  createWalletClient,
+  defineChain,
+  encodeFunctionData,
+  http,
+  parseEventLogs,
+  type Account,
+  type Chain,
+  type Hex,
+  type PublicClient,
+  type Transport,
+  type WalletClient,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { lowerHex32, keccakUtf8, ZERO_HASH } from "../shared/hash.js";
+import type { ChainAnchor, ChainApproval, ChainCounters, ChainView, Clock, PolicyChain } from "../shared/interfaces.js";
+import { fromScaled, toScaled, toScaledSigned } from "../shared/money.js";
+import { instIdHash, orderHash as computeOrderHash, toChainOrder } from "../shared/order-hash.js";
+import { fromChainPolicy, toChainPolicy } from "../shared/policy-encode.js";
+import { isCritical } from "../shared/reasons.js";
+import {
+  ChainPolicySchema,
+  OrderRequestSchema,
+  PolicySchema,
+  type Address,
+  type ChainRequestResult,
+  type Hex32,
+  type OrderRequest,
+  type Policy,
+  type TxResult,
+} from "../shared/schemas.js";
+import { SystemClock } from "../shared/time.js";
+import { vekilPolicyAbi } from "./abi.js";
+
+export const RECEIPT_TIMEOUT_MS = 10_000;
+const PREFIX30_RE = /^[0-9a-f]{30}$/;
+const ZERO_BYTES32 = ZERO_HASH;
+
+export interface ViemPolicyChainOpts {
+  rpcUrl: string;
+  chainId: number;
+  address: string;
+  /** Signs requestApproval, recordExit, anchor. */
+  agentKey?: Hex;
+  /** Signs setPolicy, pause, unpause, setAgentId (demo convenience, U8). */
+  ownerKey?: Hex;
+  /** First block to search for logs (the deploy block). */
+  fromBlock?: number;
+  clock?: Clock;
+  /** Receipt polling interval; small values suit anvil. */
+  pollingIntervalMs?: number;
+  /** Timeout for owner/agent tx receipts other than requestApproval. */
+  receiptTimeoutMs?: number;
+}
+
+/** Safe-integer conversion at the module boundary. */
+export function toSafeNumber(v: bigint | number, what: string): number {
+  const n = typeof v === "bigint" ? Number(v) : v;
+  if (!Number.isSafeInteger(n) || (typeof v === "bigint" && BigInt(n) !== v)) throw new Error(`${what} is not a safe integer: ${v}`);
+  return n;
+}
+
+export function explorerTxUrl(chainId: number, hash: string): string | null {
+  if (chainId === 43113) return `https://testnet.snowtrace.io/tx/${hash}`;
+  if (chainId === 43114) return `https://snowtrace.io/tx/${hash}`;
+  return null;
+}
+
+function errorMessage(e: unknown): string {
+  if (e && typeof e === "object") {
+    const o = e as { shortMessage?: unknown; message?: unknown };
+    if (typeof o.shortMessage === "string") return o.shortMessage;
+    if (typeof o.message === "string") return o.message.split("\n")[0] ?? "error";
+  }
+  return String(e);
+}
+
+const lowerAddr = (a: string): Address => a.toLowerCase() as Address;
+const bytes15 = (prefix30hex: string): Hex => {
+  if (!PREFIX30_RE.test(prefix30hex)) throw new Error(`not a 30-hex prefix: ${prefix30hex}`);
+  return `0x${prefix30hex}`;
+};
+
+/** Serializes writes per signer so nonces never race. */
+class SerialQueue {
+  private tail: Promise<unknown> = Promise.resolve();
+  run<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.tail.then(fn, fn);
+    this.tail = next.catch(() => undefined);
+    return next;
+  }
+}
+
+interface Signer {
+  account: Account;
+  wallet: WalletClient<Transport, Chain, Account>;
+  queue: SerialQueue;
+}
+
+type RawPolicy = {
+  maxOrderQuote: bigint;
+  dailyRiskBudget: bigint;
+  maxTradesPerHour: number;
+  maxTradesPerDay: number;
+  minStopBps: number;
+  maxStopBps: number;
+  maxHoldMin: number;
+  feeBps: number;
+  slippageBps: number;
+  validUntil: bigint;
+};
+
+export class ViemPolicyChain implements PolicyChain {
+  readonly chainId: number;
+  readonly address: Address;
+  private readonly addr: Hex;
+  private readonly chain: Chain;
+  private readonly pub: PublicClient<Transport, Chain>;
+  private readonly agent: Signer | null;
+  private readonly owner: Signer | null;
+  private readonly clock: Clock;
+  private readonly fromBlock: bigint;
+  private readonly receiptTimeoutMs: number;
+  private readonly pollingIntervalMs: number;
+  /** sourceTextHash → text (from our own setPolicy calls or PolicySet logs). */
+  private readonly sourceTexts = new Map<string, string>([[keccakUtf8(""), ""]]);
+  /** instId hash → instId string (from PolicySet logs and the current policy). */
+  private readonly instIds = new Map<string, string>();
+
+  constructor(opts: ViemPolicyChainOpts) {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(opts.address)) throw new Error(`bad contract address: ${opts.address}`);
+    this.chainId = opts.chainId;
+    this.address = lowerAddr(opts.address);
+    this.addr = this.address as Hex;
+    this.clock = opts.clock ?? new SystemClock();
+    this.fromBlock = BigInt(opts.fromBlock ?? 0);
+    this.receiptTimeoutMs = opts.receiptTimeoutMs ?? RECEIPT_TIMEOUT_MS;
+    this.pollingIntervalMs = opts.pollingIntervalMs ?? 1000;
+    this.chain = defineChain({
+      id: opts.chainId,
+      name: `chain-${opts.chainId}`,
+      nativeCurrency: { name: "AVAX", symbol: "AVAX", decimals: 18 },
+      rpcUrls: { default: { http: [opts.rpcUrl] } },
+    });
+    const transport = http(opts.rpcUrl, { retryCount: 1 });
+    this.pub = createPublicClient({ chain: this.chain, transport, pollingInterval: this.pollingIntervalMs });
+    const signer = (key: Hex | undefined): Signer | null => {
+      if (!key) return null;
+      const account = privateKeyToAccount(key);
+      const wallet = createWalletClient({ account, chain: this.chain, transport, pollingInterval: this.pollingIntervalMs });
+      return { account, wallet, queue: new SerialQueue() };
+    };
+    this.agent = signer(opts.agentKey);
+    this.owner = signer(opts.ownerKey);
+  }
+
+  get agentAddress(): Address | null {
+    return this.agent ? lowerAddr(this.agent.account.address) : null;
+  }
+
+  get ownerAddress(): Address | null {
+    return this.owner ? lowerAddr(this.owner.account.address) : null;
+  }
+
+  explorerTxUrl(hash: string): string | null {
+    return explorerTxUrl(this.chainId, hash);
+  }
+
+  // ---------------------------------------------------------------- reads
+
+  private read<T>(functionName: string, args: readonly unknown[] = [], blockNumber?: bigint): Promise<T> {
+    return this.pub.readContract({
+      address: this.addr,
+      abi: vekilPolicyAbi,
+      functionName: functionName as never,
+      args: args as never,
+      ...(blockNumber === undefined ? {} : { blockNumber }),
+    }) as Promise<T>;
+  }
+
+  async readView(): Promise<ChainView> {
+    const block = await this.pub.getBlock({ blockTag: "latest" });
+    const bn = block.number;
+    const [[raw, instIds, version, isPaused, srcHash], pHash, agent, owner, agentId] = await Promise.all([
+      this.read<readonly [RawPolicy, readonly string[], bigint, boolean, Hex]>("getPolicy", [], bn),
+      this.read<Hex>("policyHash", [], bn),
+      this.read<string>("agent", [], bn),
+      this.read<string>("owner", [], bn),
+      this.read<bigint>("agentId", [], bn),
+    ]);
+    const versionN = toSafeNumber(version, "policyVersion");
+    for (const id of instIds) this.instIds.set(instIdHash(id), id);
+    const sourceText = await this.sourceTextFor(lowerHex32(srcHash), versionN);
+    const policy = ChainPolicySchema.parse(
+      fromChainPolicy(
+        {
+          maxOrderQuote: raw.maxOrderQuote,
+          dailyRiskBudget: raw.dailyRiskBudget,
+          maxTradesPerHour: raw.maxTradesPerHour,
+          maxTradesPerDay: raw.maxTradesPerDay,
+          minStopBps: raw.minStopBps,
+          maxStopBps: raw.maxStopBps,
+          maxHoldMin: raw.maxHoldMin,
+          feeBps: raw.feeBps,
+          slippageBps: raw.slippageBps,
+          validUntil: raw.validUntil,
+        },
+        [...instIds],
+        sourceText,
+      ),
+    );
+    return {
+      paused: isPaused,
+      policyVersion: versionN,
+      policy,
+      policyHash: lowerHex32(pHash),
+      sourceTextHash: lowerHex32(srcHash),
+      agent: lowerAddr(agent),
+      owner: lowerAddr(owner),
+      agentId: toSafeNumber(agentId, "agentId"),
+      checkedAt: this.clock.now(),
+      blockTimestamp: toSafeNumber(block.timestamp, "blockTimestamp"),
+    };
+  }
+
+  /** The source text lives only in the PolicySet event (decision C2/U3). Fails closed if it can't be found. */
+  private async sourceTextFor(srcHash: Hex32, version: number): Promise<string> {
+    const cached = this.sourceTexts.get(srcHash);
+    if (cached !== undefined) return cached;
+    const logs = await this.pub.getContractEvents({
+      address: this.addr,
+      abi: vekilPolicyAbi,
+      eventName: "PolicySet",
+      args: { version: BigInt(version) },
+      fromBlock: this.fromBlock,
+      toBlock: "latest",
+    });
+    for (const l of logs) {
+      const text = l.args.sourceText;
+      if (typeof text === "string" && keccakUtf8(text) === srcHash) {
+        this.sourceTexts.set(srcHash, text);
+        return text;
+      }
+    }
+    throw new Error(`source text for ${srcHash} not found in PolicySet logs`);
+  }
+
+  async counters(): Promise<ChainCounters> {
+    const [hourIndex, dayIndex, hourCount, dayCount, riskUsed] =
+      await this.read<readonly [bigint, bigint, number, number, bigint]>("counters");
+    return {
+      hourIndex: toSafeNumber(hourIndex, "hourIndex"),
+      dayIndex: toSafeNumber(dayIndex, "dayIndex"),
+      tradesInHour: hourCount,
+      tradesInDay: dayCount,
+      riskUsedToday: fromScaled(riskUsed),
+    };
+  }
+
+  async latestBlockTimestamp(): Promise<number> {
+    const block = await this.pub.getBlock({ blockTag: "latest" });
+    return toSafeNumber(block.timestamp, "blockTimestamp");
+  }
+
+  async approval(orderHash: Hex32): Promise<ChainApproval> {
+    const [status, reasons, at, expiresAt, policyVersion, worstCase] = await this.read<
+      readonly [number, number, bigint, bigint, bigint, bigint]
+    >("approvals", [lowerHex32(orderHash)]);
+    if (status !== 0 && status !== 1 && status !== 2) throw new Error(`unknown approval status ${status}`);
+    return {
+      status,
+      reasons,
+      at: toSafeNumber(at, "approval.at"),
+      expiresAt: toSafeNumber(expiresAt, "approval.expiresAt"),
+      policyVersion: toSafeNumber(policyVersion, "approval.policyVersion"),
+      worstCase: fromScaled(worstCase),
+    };
+  }
+
+  async orderHashByPrefix(prefix30hex: string): Promise<Hex32 | null> {
+    const h = lowerHex32(await this.read<Hex>("orderHashByPrefix", [bytes15(prefix30hex)]));
+    return h === ZERO_BYTES32 ? null : h;
+  }
+
+  async entryByExitPrefix(prefix30hex: string): Promise<Hex32 | null> {
+    const h = lowerHex32(await this.read<Hex>("entryByExitPrefix", [bytes15(prefix30hex)]));
+    return h === ZERO_BYTES32 ? null : h;
+  }
+
+  async exitRecordedAt(entryOrderHash: Hex32): Promise<number> {
+    return toSafeNumber(await this.read<bigint>("exitRecordedAt", [lowerHex32(entryOrderHash)]), "exitRecordedAt");
+  }
+
+  async lastAnchoredSeq(): Promise<number> {
+    return toSafeNumber(await this.read<bigint>("lastAnchoredSeq"), "lastAnchoredSeq");
+  }
+
+  async readAnchors(): Promise<ChainAnchor[]> {
+    const count = toSafeNumber(await this.read<bigint>("anchorCount"), "anchorCount");
+    const out: ChainAnchor[] = [];
+    for (let i = 0; i < count; i++) {
+      const [root, fromSeq, toSeq, at] = await this.read<readonly [Hex, bigint, bigint, bigint]>("anchors", [BigInt(i)]);
+      out.push({
+        index: i,
+        root: lowerHex32(root),
+        fromSeq: toSafeNumber(fromSeq, "anchor.fromSeq"),
+        toSeq: toSafeNumber(toSeq, "anchor.toSeq"),
+        at: toSafeNumber(at, "anchor.at"),
+      });
+    }
+    return out;
+  }
+
+  async verifyEntry(index: number, entryHash: Hex32, proof: Hex32[]): Promise<boolean> {
+    return this.read<boolean>("verifyEntry", [BigInt(toSafeNumber(index, "index")), lowerHex32(entryHash), proof.map(lowerHex32)]);
+  }
+
+  /** The contract's pure hashOrderFor (hash parity checks). */
+  async hashOrderFor(chainId: number, policy: string, req: OrderRequest): Promise<Hex32> {
+    const parsed = OrderRequestSchema.parse(req);
+    return lowerHex32(await this.read<Hex>("hashOrderFor", [BigInt(toSafeNumber(chainId, "chainId")), policy, toChainOrder(parsed)]));
+  }
+
+  /** The approved request, from its OrderApproved log; instId strings come from PolicySet logs. */
+  async approvedRequest(orderHash: Hex32): Promise<OrderRequest | null> {
+    const logs = await this.pub.getContractEvents({
+      address: this.addr,
+      abi: vekilPolicyAbi,
+      eventName: "OrderApproved",
+      args: { orderHash: lowerHex32(orderHash) },
+      fromBlock: this.fromBlock,
+      toBlock: "latest",
+    });
+    const req = logs[0]?.args.req;
+    if (!req) return null;
+    const instId = await this.instIdString(lowerHex32(req.instId));
+    if (instId === null) return null;
+    return OrderRequestSchema.parse({
+      instId,
+      side: "buy",
+      px: fromScaled(req.px),
+      sz: fromScaled(req.sz),
+      stopPx: fromScaled(req.stopPx),
+      tpPx: fromScaled(req.tpPx),
+      timeStopMin: req.timeStopMin,
+      decisionHash: lowerHex32(req.decisionHash),
+      nonce: lowerHex32(req.nonce),
+    });
+  }
+
+  private async instIdString(hash: Hex32): Promise<string | null> {
+    const known = this.instIds.get(hash);
+    if (known !== undefined) return known;
+    const logs = await this.pub.getContractEvents({
+      address: this.addr,
+      abi: vekilPolicyAbi,
+      eventName: "PolicySet",
+      fromBlock: this.fromBlock,
+      toBlock: "latest",
+    });
+    for (const l of logs) for (const id of l.args.instIds ?? []) this.instIds.set(instIdHash(id), id);
+    return this.instIds.get(hash) ?? null;
+  }
+
+  // ---------------------------------------------------------------- writes
+
+  private async send(
+    signer: Signer | null,
+    role: "agent" | "owner",
+    functionName: string,
+    args: readonly unknown[],
+  ): Promise<TxResult> {
+    if (!signer) return { ok: false, error: `no ${role} key configured` };
+    try {
+      return await signer.queue.run(async () => {
+        const txHash = await signer.wallet.writeContract({
+          address: this.addr,
+          abi: vekilPolicyAbi,
+          functionName: functionName as never,
+          args: args as never,
+        } as never);
+        const receipt = await this.pub.waitForTransactionReceipt({
+          hash: txHash,
+          timeout: this.receiptTimeoutMs,
+          pollingInterval: this.pollingIntervalMs,
+        });
+        if (receipt.status !== "success") return { ok: false as const, error: `${functionName} reverted (${txHash})` };
+        return { ok: true as const, txHash: lowerHex32(txHash), blockNumber: toSafeNumber(receipt.blockNumber, "blockNumber") };
+      });
+    } catch (e) {
+      return { ok: false, error: `${functionName}: ${errorMessage(e)}` };
+    }
+  }
+
+  async requestApproval(req: OrderRequest, opts: { timeoutMs: number }): Promise<ChainRequestResult> {
+    const parsed = OrderRequestSchema.parse(req);
+    const orderHash = computeOrderHash(this.chainId, this.address, parsed);
+    const agent = this.agent;
+    if (!agent) return { ok: false, orderHash, error: "no agent key configured" };
+    let txHash: Hex | null = null;
+    let critical: boolean | null = null;
+    try {
+      await agent.queue.run(async () => {
+        txHash = await agent.wallet.writeContract({
+          address: this.addr,
+          abi: vekilPolicyAbi,
+          functionName: "requestApproval",
+          args: [toChainOrder(parsed)],
+        });
+        const receipt = await this.pub.waitForTransactionReceipt({
+          hash: txHash,
+          timeout: opts.timeoutMs,
+          pollingInterval: this.pollingIntervalMs,
+        });
+        if (receipt.status !== "success") throw new Error(`requestApproval reverted (${txHash})`);
+        const rejected = parseEventLogs({ abi: vekilPolicyAbi, logs: receipt.logs, eventName: "OrderRejected" });
+        const mine = rejected.find((l) => lowerHex32(l.args.orderHash) === orderHash);
+        critical = mine ? mine.args.critical : false;
+      });
+    } catch (e) {
+      // Not sent: nothing can be on chain for this hash.
+      if (txHash === null) return { ok: false, orderHash, error: `requestApproval: ${errorMessage(e)}` };
+      // Sent but no usable receipt (timeout): the chain state decides.
+    }
+    if (txHash === null) return { ok: false, orderHash, error: "requestApproval: no tx hash" };
+    try {
+      const a = await this.approval(orderHash);
+      if (a.status === 0) return { ok: false, orderHash, error: `requestApproval: no recorded outcome for ${txHash}` };
+      if (critical === null) critical = await this.criticalFromReasons(a.reasons, parsed);
+      return {
+        ok: true,
+        orderHash,
+        txHash: lowerHex32(txHash),
+        status: a.status === 1 ? "APPROVED" : "REJECTED",
+        reasonsMask: a.reasons,
+        critical: a.status === 1 ? false : critical,
+        policyVersion: a.policyVersion,
+        worstCase: a.worstCase,
+      };
+    } catch (e) {
+      return { ok: false, orderHash, error: `approval read: ${errorMessage(e)}` };
+    }
+  }
+
+  private async criticalFromReasons(mask: number, req: OrderRequest): Promise<boolean> {
+    const [raw] = await this.read<readonly [RawPolicy, readonly string[], bigint, boolean, Hex]>("getPolicy");
+    const notional = (toScaled(req.px) * toScaled(req.sz)) / 100_000_000n;
+    return isCritical(mask, notional, raw.maxOrderQuote);
+  }
+
+  recordExit(entryOrderHash: Hex32, exitPrefix30hex: string, reasonCode: number, pnlQuote: string): Promise<TxResult> {
+    if (!Number.isInteger(reasonCode) || reasonCode < 1 || reasonCode > 6) {
+      return Promise.resolve({ ok: false, error: `bad exit reason code ${reasonCode}` });
+    }
+    let args: readonly unknown[];
+    try {
+      args = [lowerHex32(entryOrderHash), bytes15(exitPrefix30hex), reasonCode, toScaledSigned(pnlQuote)];
+    } catch (e) {
+      return Promise.resolve({ ok: false, error: `recordExit: ${errorMessage(e)}` });
+    }
+    return this.send(this.agent, "agent", "recordExit", args);
+  }
+
+  anchor(root: Hex32, fromSeq: number, toSeq: number): Promise<TxResult> {
+    return this.send(this.agent, "agent", "anchor", [lowerHex32(root), BigInt(fromSeq), BigInt(toSeq)]);
+  }
+
+  async setPolicy(policy: Policy): Promise<TxResult> {
+    const parsed = PolicySchema.safeParse(policy);
+    if (!parsed.success) return { ok: false, error: `invalid policy: ${parsed.error.issues.map((i) => i.message).join("; ")}` };
+    const p = parsed.data;
+    const res = await this.send(this.owner, "owner", "setPolicy", [toChainPolicy(p), p.instIds, p.sourceText]);
+    if (res.ok) {
+      this.sourceTexts.set(keccakUtf8(p.sourceText), p.sourceText);
+      for (const id of p.instIds) this.instIds.set(instIdHash(id), id);
+    }
+    return res;
+  }
+
+  pause(): Promise<TxResult> {
+    return this.send(this.owner, "owner", "pause", []);
+  }
+
+  unpause(): Promise<TxResult> {
+    return this.send(this.owner, "owner", "unpause", []);
+  }
+
+  setAgentId(id: number): Promise<TxResult> {
+    return this.send(this.owner, "owner", "setAgentId", [BigInt(toSafeNumber(id, "agentId"))]);
+  }
+
+  encodeOwnerCall(fn: "setPolicy" | "pause" | "unpause", args?: { policy: Policy }): { to: Address; data: `0x${string}`; chainId: number } {
+    let data: Hex;
+    if (fn === "setPolicy") {
+      if (!args) throw new Error("setPolicy needs a policy");
+      const p = PolicySchema.parse(args.policy);
+      data = encodeFunctionData({ abi: vekilPolicyAbi, functionName: "setPolicy", args: [toChainPolicy(p), p.instIds, p.sourceText] });
+    } else {
+      data = encodeFunctionData({ abi: vekilPolicyAbi, functionName: fn });
+    }
+    return { to: this.address, data, chainId: this.chainId };
+  }
+}
