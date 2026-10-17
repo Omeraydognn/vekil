@@ -40,7 +40,7 @@ The owner exits (formerly S6) are now Must M17.
 | Purpose | Chain | VekilPolicy address | Deploy tx | ERC-8004 id | Notes |
 |---|---|---|---|---|---|
 | dev (main, M2) | Fuji | `0x75c9b0155b0b026f869351ab3450723c44e57999` (block 59594490) | [0xdd668a6e…](https://testnet.snowtrace.io/tx/0xdd668a6e2cff771bc46fffce96a757703697a14382dcd76ecad06820e5138d0a) · default policy [0x8317a4dc…](https://testnet.snowtrace.io/tx/0x8317a4dc87c4484e801fc5f48fd356ba2419d5b5d36627bcd59562b0a758c1f7) | **#280** ([register](https://testnet.snowtrace.io/tx/0xced08a98c35ae0de4bc0766b18eda38c8168ab6db601383088882302d7e591ce), [setAgentId](https://testnet.snowtrace.io/tx/0xcb15a73a4646801a00ad2ef180cc37ff019dafda47b87d77429b7317abacac99)) | dev wallets: owner 0x9d64…dcb4, agent 0x29c2…4f86; data/paper-fuji |
-| live (M2, reused at 16:15) | Fuji | | | | archive + fresh only if SC10/SC13 fail |
+| live (M2, reused at 16:15) | Fuji | `0xaefc457c185573503522cf2d4e7649d1b9245f04` (block 59604562) | [0x214c6479…](https://testnet.snowtrace.io/tx/0x214c64792eef926690412e2cc68ca8e371302fa6af3cfe3c7d90ad73ff0d4247) | **#283** | real OKX TR round trip: OrderApproved 0x654458a3… → clOrdId v2fa48813… → ExitRecorded 0x0c4125d3…; audit:orders all OK |
 | live mainnet (S5, if required) | mainnet | | | | |
 
 ## Evidence for the demo
@@ -48,10 +48,10 @@ The owner exits (formerly S6) are now Must M17.
 |---|---|---|
 | PolicySet with Turkish source text | v3 0xdfce1ca9… | https://testnet.snowtrace.io/tx/0xdfce1ca975af5ccbf6d2664e942e5599eaf39467548b97ecdb0953550680c076 |
 | OrderApproved (paper run on Fuji; live trade still to do) | 0x14c4f3e7… → fill vbffa58a… → STOP_HIT → ExitRecorded 0xc05124ca… | https://testnet.snowtrace.io/tx/0x14c4f3e73947f4bb5226ef96fd70590af91710346077c53215b22daa1dbe2e27 |
-| OKX clOrdId of the live trade | | |
+| OKX clOrdId of the live trade | v2fa4881396d46d374bd41c52f82d8d (exit x972cb5f83f732960d36c1affef0280) | https://testnet.snowtrace.io/tx/0x654458a3375d7c5e94c73950afd7456a939c69b0247d9ae309e2a00d22668ed9 |
 | OrderRejected + Paused (red-team) | R1, one tx 0x4c254b82… | https://testnet.snowtrace.io/tx/0x4c254b825fb099417e40aa1f82ba596ce16cc3bcce9f5d0fbaeb27beaa2bf38c |
 | Anchored + on-chain proof (verifyEntry) | anchor #35–57 0x657ae5c7…; `pnpm verify --prove 56` ✓ | https://testnet.snowtrace.io/tx/0x657ae5c7038e52b251ef2fd784afb48a064c33b33198d472057d56a2b4c6e2c5 |
-| `pnpm audit:orders` report (all OK) | | |
+| `pnpm audit:orders` report (all OK) | live account: ENTRY OK, EXIT OK, "Tüm ajan emirleri onaylı" | |
 
 ## Decisions log
 - 17 Oct 16:30 — Owner note may override the playbook (e.g. stand aside in TREND_DOWN), never the on-chain rules: the cycle message says so and C1 step 2 says "unless an OWNER NOTE asks for a trade". Without it the agent ignored "Kurallar içinde minimum tutarda bir alım değerlendir." in a down trend. The contract still judges every order (SPEC §10.2 unchanged in spirit).

@@ -75,7 +75,10 @@ Full design: [`docs/SPEC.md`](docs/SPEC.md). Build plan and status: [`docs/PLAN.
 | On-chain inclusion proof of #56 | `pnpm verify --prove 56` → anchor 4, root `0xbc8c3b21…`, 4 siblings → `verifyEntry` = true ("Kanıt zincirde doğrulandı ✓"); V1–V6 all ✓ |
 | ERC-8004 identity **#280** on the Fuji Identity Registry, linked from VekilPolicy (`agentId() = 280`) | register [0xced08a98…](https://testnet.snowtrace.io/tx/0xced08a98c35ae0de4bc0766b18eda38c8168ab6db601383088882302d7e591ce) · `setAgentId` [0xcb15a73a…](https://testnet.snowtrace.io/tx/0xcb15a73a4646801a00ad2ef180cc37ff019dafda47b87d77429b7317abacac99) |
 | `OrderApproved` (agent BUY, paper run: AVAX-TRY 0.15312 @ 489.8, stop 488, TP 493.4) | [0x14c4f3e7…](https://testnet.snowtrace.io/tx/0x14c4f3e73947f4bb5226ef96fd70590af91710346077c53215b22daa1dbe2e27) → executor re-checked the chain and filled (`clOrdId` `vbffa58a67ced49840161d6f72306e8`) → stop hit → `ExitRecorded` [0xc05124ca…](https://testnet.snowtrace.io/tx/0xc05124ca39411d621b4d1eeeaaccb26b4a5f6eaf08604ffd1c0de3d680ceab6e); `pnpm verify` V1–V6 ✓ (V3: 1 order, V5: 1 exit) |
-| Live OKX TR trade (`clOrdId`) + clean `pnpm audit:orders` | _to be added_ |
+| **Live OKX TR trade (real money)** on the live VekilPolicy [`0xaefc457c…5f04`](https://testnet.snowtrace.io/address/0xaefc457c185573503522cf2d4e7649d1b9245f04) | `OrderApproved` [0x654458a3…](https://testnet.snowtrace.io/tx/0x654458a3375d7c5e94c73950afd7456a939c69b0247d9ae309e2a00d22668ed9) → executor placed the AVAX-TRY order on OKX TR with `clOrdId` **`v2fa4881396d46d374bd41c52f82d8d`** → owner close (`x972cb5f83f732960d36c1affef0280`) → `ExitRecorded` [0x0c4125d3…](https://testnet.snowtrace.io/tx/0x0c4125d3f42175b1604178ff92e41bc510eba35612ff1b0a83d0d46510f89a28) |
+| `pnpm audit:orders` on the live account (order history read from OKX TR with the read-only key) | `✓ ENTRY v2fa4881… OK zincirde onaylı` · `✓ EXIT x972cb5f8… OK çıkış zincirde kayıtlı` · **Tüm ajan emirleri onaylı** |
+| ERC-8004 identity of the live agent **#283** (linked via `setAgentId`) | register [0x1ebb9821…](https://testnet.snowtrace.io/tx/0x1ebb9821eb7ebd0146f79f2fca8a94a7d9b3c6f67a5ef286c47d776a0bac516a) · `setAgentId` [0x477f25d0…](https://testnet.snowtrace.io/tx/0x477f25d0c5634e4fe75b295aad1f2ab1b71e427b9bd2b3e58c065253c720ef91) |
+| **Public site + VEKİL Guard API (keyless)** | https://vekilanchetr.vercel.app · manifest https://vekilanchetr.vercel.app/.well-known/vekil-guard.json |
 
 ## Run it
 
@@ -138,7 +141,7 @@ On the Fuji dev contract this answers `REJECT` with `INSTRUMENT_NOT_ALLOWED`, `O
 
 ## Public site (Vercel) and ERC-8004
 
-`site/` is a separate, keyless Vercel project: a static page plus Guard API functions (`/api/policy`, `/api/check`, `/api/audit`, `/.well-known/vekil-guard.json`). It only reads the VekilPolicy contract over the public Fuji RPC and simulates `requestApproval` with `eth_call`. Optional env on Vercel: `VEKIL_POLICY_ADDRESS` (default: the dev contract) and `FUJI_RPC_URL`.
+`site/` is a separate, keyless Vercel project (live at https://vekilanchetr.vercel.app): a static page plus Guard API functions (`/api/policy`, `/api/check`, `/api/audit`, `/.well-known/vekil-guard.json`). It only reads the VekilPolicy contract over the public Fuji RPC and simulates `requestApproval` with `eth_call`. Optional env on Vercel: `VEKIL_POLICY_ADDRESS` (default: the dev contract) and `FUJI_RPC_URL`.
 
 ```bash
 pnpm export:proofs         # refresh site/proofs.json (anchored ledger entries + Merkle proofs) before deploying
