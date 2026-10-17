@@ -2,11 +2,10 @@
 // `pnpm owner:pause --unpause`): TTY + DEVAM, then clear the core HALT and the executor `halted`, and append RESUME.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { confirmTty, openPolicyChain } from "../src/chain/deployment.js";
+import { confirmTty, loadScriptConfig, openPolicyChain } from "../src/chain/deployment.js";
 import { agentStateStore } from "../src/core/state-store.js";
 import { ExecutorStateStore, executorStatePath } from "../src/executor/store.js";
 import { FileLedger } from "../src/ledger/ledger.js";
-import { loadConfig } from "../src/shared/config.js";
 import { SystemClock } from "../src/shared/time.js";
 
 async function portUp(port: number): Promise<boolean> {
@@ -20,7 +19,7 @@ async function portUp(port: number): Promise<boolean> {
 
 async function main(): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error("pnpm resume bir terminal (TTY) ister");
-  const cfg = loadConfig({ env: { LLM_PROVIDER: "scripted", ...process.env } });
+  const cfg = loadScriptConfig();
   if ((await portUp(cfg.port)) || (await portUp(cfg.executorPort))) throw new Error("önce süreçleri durdurun (çekirdek veya emir gönderici çalışıyor)");
   if (cfg.chain !== "fake") {
     try {

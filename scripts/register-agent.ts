@@ -5,9 +5,8 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { chainKeys, confirmChainWrite, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
+import { chainKeys, confirmChainWrite, loadScriptConfig, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
 import { agentCard, dataUri, registerAgent, resumeRegister } from "../src/chain/erc8004.js";
-import { loadConfig } from "../src/shared/config.js";
 
 const AgentIdFile = z.object({ chainId: z.number().int(), policy: z.string(), registry: z.string(), agentId: z.number().int().nonnegative(), txHash: z.string() });
 const REPO = "https://github.com/Omeraydognn/vekil";
@@ -15,7 +14,7 @@ const REPO = "https://github.com/Omeraydognn/vekil";
 async function main(): Promise<void> {
   const args = scriptArgs();
   const dryRun = args.includes("--dry-run");
-  const cfg = loadConfig({ env: { LLM_PROVIDER: "scripted", ...process.env } });
+  const cfg = loadScriptConfig();
   if (cfg.chain !== "fuji" && cfg.chain !== "mainnet") throw new Error("ERC-8004 registry is on Fuji/mainnet; set CHAIN=fuji");
   const { chain } = openPolicyChain(cfg, { owner: true });
   const { ownerKey } = chainKeys(cfg);

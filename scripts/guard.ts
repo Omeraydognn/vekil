@@ -8,7 +8,7 @@ import { makeLlm } from "../src/agent/llm/factory.js";
 import { makePolicyParser } from "../src/agent/policy-parser.js";
 import { AtkClient, stdioSpawner } from "../src/atk/client.js";
 import { readAllowlist } from "../src/atk/manifest.js";
-import { openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
+import { loadScriptConfig, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
 import { guardApp, isLoopbackHost } from "../src/guard/server.js";
 import { guardManifest } from "../src/guard/manifest.js";
 import { AtkMarket } from "../src/market/atk-market.js";
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
   const env = GuardEnv.parse(Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== "")));
   // Guard signs nothing; the scripted provider keeps config from demanding an LLM key unless Text-to-Policy is on.
   const wantPropose = env.GUARD_PROPOSE === "1" && !args.includes("--write-manifest");
-  const cfg = loadConfig({ env: { ...process.env, ...(wantPropose ? {} : { LLM_PROVIDER: "scripted" }) } });
+  const cfg = wantPropose ? loadConfig() : loadScriptConfig();
   const { chain } = openPolicyChain(cfg);
   const baseUrl = `http://${env.GUARD_HOST}:${env.GUARD_PORT}`;
 

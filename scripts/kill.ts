@@ -4,13 +4,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AtkClient, readStateModeFromFile, stdioSpawner } from "../src/atk/client.js";
-import { confirmTty, scriptArgs } from "../src/chain/deployment.js";
+import { confirmTty, loadScriptConfig, scriptArgs } from "../src/chain/deployment.js";
 import { HttpExecutorClient } from "../src/executor/client.js";
 import { executorTokenPath } from "../src/executor/launch.js";
 import { OkxOrderRow, rows } from "../src/atk/parse.js";
 import { agentStateStore } from "../src/core/state-store.js";
 import { serverTokenPath } from "../src/server/server.js";
-import { loadConfig } from "../src/shared/config.js";
 import { CLORDID_RE } from "../src/shared/order-hash.js";
 import { KillReportSchema } from "../src/shared/schemas.js";
 
@@ -29,7 +28,7 @@ function haltStateFile(dataDir: string, reason: string): void {
 
 async function main(): Promise<void> {
   const args = scriptArgs();
-  const cfg = loadConfig({ env: { LLM_PROVIDER: "scripted", ...process.env } });
+  const cfg = loadScriptConfig();
   if (!args.includes("--yes") && !(await confirmTty(`Durdur: ${cfg.mode}/${cfg.chain}, ${cfg.dataDir}. Devam? [y/N]`, "y"))) {
     throw new Error("onaylanmadı (TTY'de y yazın veya --yes)");
   }

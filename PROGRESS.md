@@ -39,7 +39,7 @@ The owner exits (formerly S6) are now Must M17.
 ## Deployments
 | Purpose | Chain | VekilPolicy address | Deploy tx | ERC-8004 id | Notes |
 |---|---|---|---|---|---|
-| dev (main, M2) | Fuji | `0x75c9b0155b0b026f869351ab3450723c44e57999` (block 59594490) | [0xdd668a6e…](https://testnet.snowtrace.io/tx/0xdd668a6e2cff771bc46fffce96a757703697a14382dcd76ecad06820e5138d0a) · default policy [0x8317a4dc…](https://testnet.snowtrace.io/tx/0x8317a4dc87c4484e801fc5f48fd356ba2419d5b5d36627bcd59562b0a758c1f7) | | dev wallets: owner 0x9d64…dcb4, agent 0x29c2…4f86; data/paper-fuji |
+| dev (main, M2) | Fuji | `0x75c9b0155b0b026f869351ab3450723c44e57999` (block 59594490) | [0xdd668a6e…](https://testnet.snowtrace.io/tx/0xdd668a6e2cff771bc46fffce96a757703697a14382dcd76ecad06820e5138d0a) · default policy [0x8317a4dc…](https://testnet.snowtrace.io/tx/0x8317a4dc87c4484e801fc5f48fd356ba2419d5b5d36627bcd59562b0a758c1f7) | **#280** ([register](https://testnet.snowtrace.io/tx/0xced08a98c35ae0de4bc0766b18eda38c8168ab6db601383088882302d7e591ce), [setAgentId](https://testnet.snowtrace.io/tx/0xcb15a73a4646801a00ad2ef180cc37ff019dafda47b87d77429b7317abacac99)) | dev wallets: owner 0x9d64…dcb4, agent 0x29c2…4f86; data/paper-fuji |
 | live (M2, reused at 16:15) | Fuji | | | | archive + fresh only if SC10/SC13 fail |
 | live mainnet (S5, if required) | mainnet | | | | |
 

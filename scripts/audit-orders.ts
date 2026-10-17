@@ -6,11 +6,10 @@ import { join } from "node:path";
 import { AtkClient, stdioSpawner } from "../src/atk/client.js";
 import { readAllowlist } from "../src/atk/manifest.js";
 import { runAudit, executorOrderSource } from "../src/audit/auditor.js";
-import { openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
+import { loadScriptConfig, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
 import { HttpExecutorClient } from "../src/executor/client.js";
 import { AtkOrderHistory } from "../src/executor/exchanges/atk-exchange.js";
 import { executorTokenPath } from "../src/executor/launch.js";
-import { loadConfig } from "../src/shared/config.js";
 import { AuditReportSchema, type AuditReport } from "../src/shared/schemas.js";
 
 function print(r: AuditReport): void {
@@ -24,7 +23,7 @@ function print(r: AuditReport): void {
 
 async function main(): Promise<void> {
   scriptArgs();
-  const cfg = loadConfig({ env: { LLM_PROVIDER: "scripted", ...process.env } });
+  const cfg = loadScriptConfig();
   let report: AuditReport;
   if (cfg.mode === "fake") {
     const tokenPath = join(cfg.dataDir, "server-token");

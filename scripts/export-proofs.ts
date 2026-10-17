@@ -3,9 +3,8 @@
 // VekilPolicy.verifyEntry from the public site. Reads $DATA_DIR/ledger.jsonl and the contract's anchors; sends nothing.
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { openPolicyChain } from "../src/chain/deployment.js";
+import { loadScriptConfig, openPolicyChain } from "../src/chain/deployment.js";
 import { FileLedger } from "../src/ledger/ledger.js";
-import { loadConfig } from "../src/shared/config.js";
 import { merkleProof, merkleRoot } from "../src/shared/merkle.js";
 import { SystemClock } from "../src/shared/time.js";
 
@@ -25,7 +24,7 @@ function summary(kind: string, p: Record<string, unknown>): string {
 }
 
 async function main(): Promise<void> {
-  const cfg = loadConfig({ env: { LLM_PROVIDER: "scripted", ...process.env } });
+  const cfg = loadScriptConfig();
   const { chain } = openPolicyChain(cfg);
   const entries = new FileLedger(join(cfg.dataDir, "ledger.jsonl"), new SystemClock()).readAll();
   const anchors = await chain.readAnchors();

@@ -1,11 +1,10 @@
 // pnpm owner:pause [--unpause] — the owner's on-chain brake (SPEC §13.3, §17).
-import { confirmChainWrite, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
-import { loadConfig } from "../src/shared/config.js";
+import { confirmChainWrite, loadScriptConfig, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
 
 async function main(): Promise<void> {
   const args = scriptArgs();
   const unpause = args.includes("--unpause");
-  const cfg = loadConfig({ env: { LLM_PROVIDER: "scripted", ...process.env } });
+  const cfg = loadScriptConfig();
   const { chain } = openPolicyChain(cfg, { owner: true });
   const view = await chain.readView();
   console.log(`contract ${chain.address} on ${cfg.chain}: paused=${view.paused}`);

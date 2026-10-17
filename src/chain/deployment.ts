@@ -5,7 +5,7 @@ import { createInterface } from "node:readline/promises";
 import type { Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
-import type { Config } from "../shared/config.js";
+import { ConfigError, loadConfig, type Config } from "../shared/config.js";
 import { Address } from "../shared/schemas.js";
 import { ANVIL_KEYS } from "./anvil.js";
 import { ViemPolicyChain } from "./policy-chain.js";
@@ -65,6 +65,27 @@ export function openPolicyChain(cfg: Config, opts: { owner?: boolean; agent?: bo
     pollingIntervalMs: cfg.chain === "local" ? 100 : 1000,
   });
   return { chain, deployment };
+}
+
+/**
+ * Config for admin scripts that never call the LLM (deploy, policy-set without --text, kill, resume, verify, audit…).
+ * The real config first, so a live/demo .env (which must name a real LLM) works as is; on a ConfigError retry once with
+ * the scripted provider (dev checkouts without an LLM key; config still refuses scripted for demo/live). If the retry
+ * fails too, the original error is thrown, since it names the real problem. `over` wins over both (e.g. CHAIN).
+ */
+export function loadScriptConfig(over: Record<string, string> = {}, base: { env?: NodeJS.ProcessEnv; dotenv?: boolean } = {}): Config {
+  const env = base.env ?? process.env;
+  const dotenv = base.dotenv ?? true;
+  try {
+    return loadConfig({ env: { ...env, ...over }, dotenv });
+  } catch (e) {
+    if (!(e instanceof ConfigError)) throw e;
+    try {
+      return loadConfig({ env: { ...env, LLM_PROVIDER: "scripted", ...over }, dotenv });
+    } catch {
+      throw e;
+    }
+  }
 }
 
 /** Script arguments without a stray "--" (SPEC §7). */

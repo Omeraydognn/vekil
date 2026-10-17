@@ -2,9 +2,8 @@
 // exercises approve, reject (critical → paused), exit, anchor and verifyEntry. Never touches deployment.json (SPEC §13.3).
 import { privateKeyToAccount } from "viem/accounts";
 import { startLocalChain, deployVekilPolicy } from "../src/chain/anvil.js";
-import { confirmChainWrite, scriptArgs } from "../src/chain/deployment.js";
+import { confirmChainWrite, loadScriptConfig, scriptArgs } from "../src/chain/deployment.js";
 import { ViemPolicyChain } from "../src/chain/policy-chain.js";
-import { loadConfig } from "../src/shared/config.js";
 import { keccakUtf8 } from "../src/shared/hash.js";
 import type { PolicyChain } from "../src/shared/interfaces.js";
 import { merkleProof, merkleRoot } from "../src/shared/merkle.js";
@@ -68,7 +67,7 @@ async function main(): Promise<void> {
       await lc.stop();
     }
   } else {
-    const cfg = loadConfig({ env: { LLM_PROVIDER: "scripted", ...process.env, CHAIN: process.env.CHAIN === "mainnet" ? "mainnet" : "fuji" } });
+    const cfg = loadScriptConfig({ CHAIN: process.env.CHAIN === "mainnet" ? "mainnet" : "fuji" });
     if (!cfg.ownerPrivateKey || !cfg.agentPrivateKey || !cfg.rpcUrl) throw new Error("OWNER_PRIVATE_KEY and AGENT_PRIVATE_KEY are required");
     await confirmChainWrite(cfg, "probe:chain deploys a throwaway contract and sends ~7 txs", args);
     const agent = privateKeyToAccount(cfg.agentPrivateKey).address;

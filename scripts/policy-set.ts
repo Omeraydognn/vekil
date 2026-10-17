@@ -1,6 +1,6 @@
 // pnpm policy:set [--text "<Türkçe kurallar>"] [--<policyField> <value> …] [--reset] [--yes]
 // Flags apply over the current on-chain policy (SPEC §11, §13.3). Validated with PolicySchema before sending.
-import { confirmChainWrite, confirmTty, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
+import { confirmChainWrite, confirmTty, loadScriptConfig, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
 import { makeLlm } from "../src/agent/llm/factory.js";
 import { makePolicyParser } from "../src/agent/policy-parser.js";
 import { AtkClient, stdioSpawner } from "../src/atk/client.js";
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
   const args = scriptArgs();
   const textIdx = args.indexOf("--text");
   const text = textIdx >= 0 ? args[textIdx + 1] : undefined;
-  const cfg = loadConfig({ env: { ...(text === undefined ? { LLM_PROVIDER: "scripted" } : {}), ...process.env } });
+  const cfg = (text === undefined ? loadScriptConfig() : loadConfig());
   const { chain } = openPolicyChain(cfg, { owner: true });
   const view = await chain.readView();
   const now = Date.now();
