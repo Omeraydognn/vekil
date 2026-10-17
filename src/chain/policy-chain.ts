@@ -103,13 +103,13 @@ function isBlockGasLimitError(e: unknown): boolean {
   return false;
 }
 
-/** Estimate gas as usual; only if the node refuses the estimate that way, send once more with FALLBACK_GAS. */
-export async function writeWithGasFallback(write: (gas?: bigint) => Promise<Hex>): Promise<Hex> {
+/** Estimate gas as usual; only if the node refuses the estimate that way, send once more with a fixed limit. */
+export async function writeWithGasFallback(write: (gas?: bigint) => Promise<Hex>, fallbackGas: bigint = FALLBACK_GAS): Promise<Hex> {
   try {
     return await write();
   } catch (e) {
     if (!isBlockGasLimitError(e)) throw e;
-    return write(FALLBACK_GAS);
+    return write(fallbackGas);
   }
 }
 

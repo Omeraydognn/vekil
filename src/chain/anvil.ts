@@ -9,7 +9,9 @@ import { HARD_MAX_DAILY_RISK, HARD_MAX_ORDER_QUOTE, toScaled } from "../shared/m
 import { defaultPolicy, type Address, type Policy } from "../shared/schemas.js";
 import { SystemClock } from "../shared/time.js";
 import { vekilPolicyAbi, vekilPolicyBytecode } from "./abi.js";
-import { ViemPolicyChain } from "./policy-chain.js";
+import { ViemPolicyChain, writeWithGasFallback } from "./policy-chain.js";
+
+export const DEPLOY_FALLBACK_GAS = 4_000_000n;
 
 export const ANVIL_CHAIN_ID = 31337;
 /** anvil's well-known, public test accounts (mnemonic "test test … junk"). Never use them anywhere real. */
@@ -114,15 +116,22 @@ export async function deployVekilPolicy(opts: {
   const pollingInterval = opts.pollingIntervalMs ?? 1000;
   const wallet = createWalletClient({ account, chain, transport: http(opts.rpcUrl), pollingInterval });
   const pub = createPublicClient({ chain, transport: http(opts.rpcUrl), pollingInterval });
-  const txHash = await wallet.deployContract({
-    abi: vekilPolicyAbi,
-    bytecode: vekilPolicyBytecode,
-    args: [
-      opts.agentAddress as Hex,
-      toScaled(opts.hardMaxOrderQuote ?? HARD_MAX_ORDER_QUOTE),
-      toScaled(opts.hardMaxDailyRisk ?? HARD_MAX_DAILY_RISK),
-    ],
-  });
+  // The Fuji deploy used 2,621,650 gas; some public RPCs return an absurd estimate ("exceeds block gas limit"), so
+  // retry once with a fixed 4M limit.
+  const txHash = await writeWithGasFallback(
+    (gas) =>
+      wallet.deployContract({
+        abi: vekilPolicyAbi,
+        bytecode: vekilPolicyBytecode,
+        args: [
+          opts.agentAddress as Hex,
+          toScaled(opts.hardMaxOrderQuote ?? HARD_MAX_ORDER_QUOTE),
+          toScaled(opts.hardMaxDailyRisk ?? HARD_MAX_DAILY_RISK),
+        ],
+        ...(gas ? { gas } : {}),
+      }),
+    DEPLOY_FALLBACK_GAS,
+  );
   const receipt = await pub.waitForTransactionReceipt({ hash: txHash, timeout: opts.timeoutMs ?? 60_000, pollingInterval });
   if (receipt.status !== "success" || !receipt.contractAddress) throw new Error(`deploy failed: ${txHash}`);
   const blockNumber = Number(receipt.blockNumber);
