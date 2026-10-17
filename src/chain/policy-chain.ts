@@ -75,8 +75,14 @@ export function explorerTxUrl(chainId: number, hash: string): string | null {
 function errorMessage(e: unknown): string {
   if (e && typeof e === "object") {
     const o = e as { shortMessage?: unknown; message?: unknown };
-    if (typeof o.shortMessage === "string") return o.shortMessage;
-    if (typeof o.message === "string") return o.message.split("\n")[0] ?? "error";
+    const head = typeof o.shortMessage === "string" ? o.shortMessage.split("\n")[0] : typeof o.message === "string" ? o.message.split("\n")[0] : undefined;
+    // viem keeps the node's own text (e.g. "insufficient funds", "nonce too low") in `details` down the cause chain.
+    let details: string | undefined;
+    for (let c: unknown = e, i = 0; c && typeof c === "object" && i < 8; c = (c as { cause?: unknown }).cause, i++) {
+      const d = (c as { details?: unknown }).details;
+      if (typeof d === "string" && d.trim() && !d.trimStart().startsWith("<")) details = d.trim();
+    }
+    if (head !== undefined) return details && !head.includes(details) ? `${head} (${details.slice(0, 200)})` : head || "error";
   }
   return String(e);
 }
