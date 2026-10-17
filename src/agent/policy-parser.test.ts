@@ -51,9 +51,19 @@ describe("policy-parser", () => {
     expect((await parse({ validUntilIso: "2026-10-17T23:59:59.500+03:00" })).errors.join()).toMatch(/tam saniye/);
   });
 
-  it("keeps the model's questions (e.g. no stop / leverage)", async () => {
-    const p = await makePolicyParser({ llm: llmWith({ ...base, questions: ["Stopsuz işlem desteklenmiyor."] }), clock, instrument })("stopsuz al", { nowMs: NOW });
-    expect(p.questions).toEqual(["Stopsuz işlem desteklenmiyor."]);
+  it("keeps the model's questions and always adds the code guards (leverage, no stop, amount over the cap)", async () => {
+    const p = await makePolicyParser({ llm: llmWith({ ...base, questions: ["Stopsuz işlem desteklenmiyor."] }), clock, instrument })("Kaldıraçlı al, zarar-kes koyma, işlem başına 2000 TL.", { nowMs: NOW });
+    expect(p.questions[0]).toBe("Stopsuz işlem desteklenmiyor.");
+    expect(p.questions.join(" ")).toMatch(/Kaldıraç/);
+    expect(p.questions.join(" ")).toMatch(/zarar-kes zorunludur/);
+    expect(p.questions.join(" ")).toMatch(/üst sınırı aşıyor/);
+    const plain = await makePolicyParser({ llm: llmWith(base), clock, instrument })("Sadece AVAX al, işlem başına 200 TL.", { nowMs: NOW });
+    expect(plain.questions).toEqual([]);
+  });
+
+  it("builds a Turkish summary when the model leaves it empty", async () => {
+    const p = await makePolicyParser({ llm: llmWith({ ...base, summaryTr: "" }), clock, instrument })("Sadece AVAX al.", { nowMs: NOW });
+    expect(p.summaryTr).toMatch(/^Yalnızca AVAX-TRY spot alım\. İşlem başına en fazla 200 TL/);
   });
 
   it("retries once when the model answers in text, and accepts a JSON object from the text", async () => {

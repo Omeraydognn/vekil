@@ -98,6 +98,35 @@ const str = (v: string | number | undefined): string | undefined => (v === undef
 const clip = (s: string, n: number): string => (s.length > n ? s.slice(0, n) : s);
 
 /** Validation in code (§11 step 3). Returns the policy plus errors and any extra questions (caps). */
+/**
+ * Questions the owner must see whatever the model wrote (Appendix D rules, enforced in code): requests we can't encode
+ * (leverage, short, no stop) and amounts above the hard caps in the owner's own text.
+ */
+export function guardQuestions(text: string): string[] {
+  const t = text.toLocaleLowerCase("tr-TR");
+  const q: string[] = [];
+  if (/kaldıraç|kaldirac|leverage|marjin|margin|vadeli|futures/.test(t)) q.push("Kaldıraç, marjin ve vadeli işlem desteklenmiyor; yalnızca kaldıraçsız spot alım kodlandı. Uygun mu?");
+  if (/açığa sat|aciga sat|short|düşüşe oyna|düşüş yönlü/.test(t)) q.push("Açığa satış (short) desteklenmiyor; yalnızca alım (long) yapılabilir. Uygun mu?");
+  if (/zarar[- ]?kes(siz| koyma| olmasın| istemiyorum)|stop(suz| koyma| olmasın)|stop[- ]?loss(suz| koyma| olmasın)/.test(t)) {
+    q.push("Her alımda zarar-kes zorunludur; 'zarar-kes koyma' isteği kodlanmadı. Uygun mu?");
+  }
+  const amounts = [...t.matchAll(/(\d[\d.]*(?:,\d+)?)\s*(?:tl|try|₺)/g)].map((m) => Number(m[1]!.replace(/\./g, "").replace(",", ".")));
+  if (amounts.some((a) => Number.isFinite(a) && a > Number(HARD_MAX_ORDER_QUOTE))) {
+    q.push(`Metindeki tutar üst sınırı aşıyor: işlem başına en fazla ${HARD_MAX_ORDER_QUOTE} TL, günlük risk en fazla ${HARD_MAX_DAILY_RISK} TL olabilir; aşan değer sınıra çekildi. Uygun mu?`);
+  }
+  return q;
+}
+
+/** A plain Turkish summary built from the validated policy (used when the model leaves summaryTr empty). */
+export function summaryFromPolicy(p: Policy): string {
+  const until = isoIstanbul(p.validUntil).slice(0, 16).replace("T", " ");
+  return (
+    `Yalnızca ${p.instIds.join(", ")} spot alım. İşlem başına en fazla ${p.maxOrderQuote} TL, günlük risk bütçesi ${p.dailyRiskBudgetQuote} TL. ` +
+    `Saatte en fazla ${p.maxTradesPerHour}, günde en fazla ${p.maxTradesPerDay} işlem; her alımda zarar-kes %${p.minStopDistancePct}–%${p.maxStopDistancePct}, ` +
+    `pozisyon en fazla ${p.maxHoldMin} dakika. Kurallar ${until}'e kadar geçerli.`
+  );
+}
+
 export async function validateDraft(
   draft: z.infer<typeof DraftSchema>,
   text: string,
@@ -226,10 +255,10 @@ export function makePolicyParser(deps: PolicyParserDeps): (text: string, ctx: { 
     const v = await validateDraft(draft.data, text, nowMs, deps.instrument);
     return {
       policy: v.policy,
-      summaryTr: clip(draft.data.summaryTr, 600),
+      summaryTr: clip(draft.data.summaryTr.trim() || summaryFromPolicy(v.policy), 600),
       mapping: draft.data.mapping.slice(0, 20).map((m) => ({ phrase: clip(m.phrase, 200), field: clip(m.field, 40), value: clip(String(m.value), 80) })),
       assumptions: draft.data.assumptions.slice(0, 15).map((a) => clip(a, 300)),
-      questions: [...draft.data.questions.slice(0, 10).map((q) => clip(q, 300)), ...v.questions],
+      questions: [...new Set([...draft.data.questions.slice(0, 10).map((q) => clip(q, 300)), ...v.questions, ...guardQuestions(text)])],
       errors: v.errors,
     };
   };
