@@ -6,7 +6,7 @@ import { merkleRoot } from "../shared/merkle.js";
 import { entryClOrdId, exitClOrdId, hashPrefix30, orderHash } from "../shared/order-hash.js";
 import { policyHash, sourceTextHash } from "../shared/policy-encode.js";
 import { maskToReasons } from "../shared/reasons.js";
-import type { OrderRequest, Policy } from "../shared/schemas.js";
+import type { Hex32, OrderRequest, Policy } from "../shared/schemas.js";
 import {
   VECTOR_CHAIN_ID,
   VECTOR_ENTRY_HASHES,
@@ -34,7 +34,7 @@ const withNonce = (r: OrderRequest, n: number): OrderRequest => ({ ...r, nonce: 
 
 describe.skipIf(!hasAnvil)("ViemPolicyChain on anvil", () => {
   let lc: LocalChain;
-  let approvedHash: `0x${string}`;
+  let approvedHash = "" as Hex32;
 
   beforeAll(async () => {
     lc = await startLocalChain();
