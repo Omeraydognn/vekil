@@ -33,6 +33,21 @@ const ResponseSchema = z.object({
     .min(1),
 });
 
+/** The JSON body, ignoring keep-alive comment lines (": OPENROUTER PROCESSING") and blank padding; null if none. */
+export function parseBody(text: string): unknown | null {
+  const cleaned = text
+    .split("\n")
+    .filter((l) => !l.startsWith(":"))
+    .join("\n")
+    .trim();
+  if (!cleaned) return null;
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return null;
+  }
+}
+
 export class OpenRouterError extends Error {
   override name = "OpenRouterError";
   // `message` never contains the key: only the provider's error text and the HTTP status.
@@ -144,14 +159,19 @@ export class OpenRouterLlm implements LlmClient {
       body: JSON.stringify(body),
       signal,
     });
-    const json: unknown = await res.json().catch(() => null);
+    const json = parseBody(await res.text().catch(() => ""));
     if (!res.ok) {
       const msg = (json as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${res.status}`;
       throw new OpenRouterError(res.status, `openrouter: ${msg}`);
     }
+    if (json === null) throw new OpenRouterError(502, "openrouter: empty or non-JSON response");
     const err = (json as { error?: { message?: string } } | null)?.error;
     if (err) throw new OpenRouterError(502, `openrouter: ${err.message ?? "error"}`);
-    return fromResponse(json, this.opts.model);
+    try {
+      return fromResponse(json, this.opts.model);
+    } catch {
+      throw new OpenRouterError(502, "openrouter: unexpected response shape");
+    }
   }
 
   async create(req: LlmRequest, signal: AbortSignal): Promise<LlmResponse> {

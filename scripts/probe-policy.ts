@@ -32,11 +32,19 @@ async function main(): Promise<void> {
     close = () => atk.close();
     market = new AtkMarket(atk, clock);
   }
+  let failed = 0;
   const parse = makePolicyParser({ llm, clock, instrument: (id) => market.getInstrument(id) });
   try {
     for (const [i, text] of fixtures.texts.entries()) {
       console.log(`\n=== ${i + 1}. "${text}"`);
-      const p = await parse(text, { nowMs: clock.now() });
+      let p: Awaited<ReturnType<typeof parse>>;
+      try {
+        p = await parse(text, { nowMs: clock.now() });
+      } catch (e) {
+        failed++;
+        console.log(`HATA: ${e instanceof Error ? e.message : String(e)}`);
+        continue;
+      }
       console.log(p.summaryTr);
       console.log(`policy: ${JSON.stringify({ ...p.policy, validUntil: new Date(p.policy.validUntil).toISOString() })}`);
       console.log("Senin cümlen → Kontrat alanı → Değer");
@@ -49,6 +57,7 @@ async function main(): Promise<void> {
   } finally {
     await close();
   }
+  if (failed) process.exitCode = 1;
 }
 
 main().catch((e: unknown) => {

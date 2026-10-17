@@ -78,6 +78,21 @@ describe("OpenRouterLlm", () => {
     expect(seen[0]).toMatchObject({ model: "a/x:free", models: ["a/x:free", "b/y:free"] });
   });
 
+  it("an empty or keep-alive-padded 200 is retried, then parsed", async () => {
+    const seen: Record<string, unknown>[] = [];
+    let n = 0;
+    const f = (async (_u: unknown, init?: RequestInit) => {
+      seen.push(JSON.parse(String(init?.body)));
+      n++;
+      const body = n === 1 ? "" : `: OPENROUTER PROCESSING\n\n${JSON.stringify({ choices: [{ message: { content: "tamam" } }] })}`;
+      return new Response(body, { status: 200 });
+    }) as typeof fetch;
+    const llm = new OpenRouterLlm({ model: "a/x:free", apiKey: "k", clock: new SimClock(0, { autoAdvance: true }), fetchImpl: f });
+    const r = await llm.create({ system: "S", tools: [], messages: [{ role: "user", content: "x" }], toolChoice: { type: "auto" }, maxTokens: 10 }, new AbortController().signal);
+    expect(r.content).toEqual([{ type: "text", text: "tamam" }]);
+    expect(seen).toHaveLength(2);
+  });
+
   it("does not retry a 401", async () => {
     const seen: Record<string, unknown>[] = [];
     const llm = new OpenRouterLlm({ model: "x/y", apiKey: "bad", clock: new SimClock(0, { autoAdvance: true }), fetchImpl: fakeFetch([{ status: 401, body: { error: { message: "No auth" } } }], seen) });
