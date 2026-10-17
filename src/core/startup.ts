@@ -1,4 +1,4 @@
-// Startup checks (SPEC §18). M1: SC1, SC2, SC3, SC5, SC7, SC8, SC11, SC13. SC4, SC6, SC9, SC10, SC12, SC14 land in M3.
+// Startup checks (SPEC §18). Built: SC1, SC2, SC3, SC5, SC6 (live/demo), SC7, SC8, SC11, SC13. SC4, SC9, SC10, SC12, SC14 land in M3.
 import type { ChainView } from "../shared/interfaces.js";
 import { ChainPolicySchema, type AgentState, type StartupReport } from "../shared/schemas.js";
 import type { CoreDeps } from "./deps.js";
@@ -85,6 +85,13 @@ export async function runStartupChecks(d: CoreDeps, input: StartupInput): Promis
     add("SC5", issues.length === 0, "fail", "Emir gönderici hazır ve izole", issues.join("; ") || `${h.atk.kind}, ${h.positions.length} pozisyon`);
   } catch (e) {
     add("SC5", false, "fail", "Emir gönderici hazır ve izole", errMsg(e));
+  }
+
+  // SC6 (live/demo only; skipped in fake/paper): no withdraw permission on the trade key. No permission read on the
+  // trade key is available within market+spot (ATK_NOTES §1), so the human acknowledgement is required.
+  if (liveLike) {
+    add("SC6", cfg.iConfirmNoWithdraw, "fail", "Para çekme yetkisi yok",
+      cfg.iConfirmNoWithdraw ? "I_CONFIRM_NO_WITHDRAW=yes (sahip OKX TR'de kontrol etti)" : "I_CONFIRM_NO_WITHDRAW=yes gerekli: işlem anahtarında para çekme yetkisi olmadığını OKX TR'de kontrol edip .env'e yaz");
   }
 
   // SC7: INST_ID spec loaded and live.

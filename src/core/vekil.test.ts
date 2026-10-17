@@ -7,6 +7,7 @@ import type { FakePolicyChain } from "../chain/fake-policy-chain.js";
 import { loadConfig } from "../shared/config.js";
 import { ceilToTick, decMul, floorToTick } from "../shared/money.js";
 import { defaultPolicy, type AgentDecision, type Hex32 } from "../shared/schemas.js";
+import { runStartupChecks } from "./startup.js";
 import { agentStateStore } from "./state-store.js";
 import { Vekil } from "./vekil.js";
 import { buildRuntime, type Runtime } from "./wiring.js";
@@ -168,6 +169,16 @@ describe("core pipeline", () => {
     expect(rep.checks.find((c) => c.id === "SC13")?.ok).toBe(false);
     expect(store.load()!.chainId).toBe(43113);
     expect(again.getState().status).toBe("STARTUP_FAILED");
+  });
+
+  it("SC6: live needs I_CONFIRM_NO_WITHDRAW=yes; paper/fake skip it", async () => {
+    const rt = await setup();
+    expect((await rt.core.startup()).checks.find((c) => c.id === "SC6")).toBeUndefined();
+    const live = (yes: boolean) => runStartupChecks({ ...rt.deps, cfg: { ...rt.deps.cfg, mode: "live", iConfirmNoWithdraw: yes } }, { state: null, loadError: null });
+    const no = (await live(false)).report.checks.find((c) => c.id === "SC6");
+    expect(no).toMatchObject({ ok: false, level: "fail" });
+    expect((await live(false)).report.ok).toBe(false);
+    expect((await live(true)).report.checks.find((c) => c.id === "SC6")?.ok).toBe(true);
   });
 
   it("HALTED → scheduler-style cycles are SKIPPED without an LLM call", async () => {
