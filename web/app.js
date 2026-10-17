@@ -137,6 +137,11 @@ function renderState(s) {
   $("policyVersion").textContent = `Sürüm ${s.chain?.policyVersion ?? 0}`;
   $("policyOnChain").textContent = p ? "Zincirde ✓" : "";
 
+  // Plain-language layer
+  renderGuide(s);
+  $("haltHelp").classList.toggle("hidden", s.status !== "HALTED");
+  $("haltHelpUnpause").classList.toggle("hidden", !s.chain?.paused);
+
   // Agent
   const d = s.agent?.lastDecision;
   renderDecision(d, s.agent?.lastOutcome);
@@ -148,7 +153,7 @@ function renderState(s) {
   const box = $("positions");
   box.replaceChildren();
   const positions = s.executor?.positions ?? [];
-  if (!positions.length) box.append(el("p", { class: "muted" }, "Açık pozisyon yok."));
+  if (!positions.length) box.append(el("p", { class: "muted" }, "Açık pozisyon yok. Vekil alım yaptığında pozisyon burada görünür: zincirde onaylı zarar-kes, kâr-al ve süre sınırıyla. “Pozisyonu kapat” ile istediğin an satabilirsin."));
   for (const pos of positions) {
     const btn = el("button", { class: "danger" }, "Pozisyonu kapat");
     btn.addEventListener("click", busy(btn, async () => {
@@ -186,7 +191,44 @@ function renderState(s) {
 }
 const seenAlerts = new Set();
 
+/** One plain sentence: what the agent is doing now and why (SPEC §22 playbooks, in user words). */
+const HOLD_WHY = {
+  TREND_DOWN: "Piyasa düşüşte. Strateji düşen trendde alım yapmaz, bu yüzden kenarda bekliyor.",
+  HIGH_VOLATILITY: "Fiyat çok oynak. Risk yüksek olduğu için bekliyor.",
+  NEWS_DRIVEN: "Fiyat haberle hareket ediyor. Yön netleşene kadar bekliyor.",
+  UNCLEAR: "Yön belirsiz, kanıt zayıf. Bekliyor.",
+  TREND_UP: "Piyasa yükselişte ama uygun giriş noktası henüz oluşmadı. Bekliyor.",
+  RANGE: "Fiyat yatay bantta ama alım bölgesinde değil. Bekliyor.",
+};
+const OUTCOME_SAYS = {
+  EXECUTED: "Alım yaptı: kontrat onayladı, emir gönderici zincirden tekrar kontrol edip emri iletti.",
+  NOT_FILLED: "Alım istedi, kontrat onayladı ama emir dolmadı (fiyat kaçtı). Para harcanmadı.",
+  REJECTED: "Alım istedi ama kontrat reddetti. Nedenler günlükte ve zincirde kayıtlı.",
+  LOCAL_BLOCK: "Alım istedi ama ön kontrol durdurdu (piyasa koşulu, bakiye ya da açık pozisyon).",
+  ENTRY_ABORTED: "Onay geldi ama emir gönderilmedi; onay kullanılmadan süresi doldu.",
+  CHAIN_REQUEST_FAILED: "Zincire ulaşılamadı; güvenlik gereği emir gönderilmedi.",
+  LLM_ERROR: "Yapay zekâ servisine ulaşılamadı; 5 dakika sonra tekrar deneyecek.",
+  NO_DECISION: "Yapay zekâ bu döngüde karar vermedi; beklemede.",
+  INVALID_DECISION: "Yapay zekânın cevabı geçersizdi; güvenlik gereği bekleme sayıldı.",
+  CLOSING: "Pozisyonu kapatıyor.",
+  ADJUSTED: "Zarar-kesi sıkılaştırdı.",
+};
+function agentSentence(d, outcome, status) {
+  if (status === "HALTED") return "Vekil durduruldu; yeni karar vermiyor. Açık pozisyonlar yine zarar-kes, kâr-al ve süre sınırıyla korunur.";
+  if (status === "STARTUP_FAILED") return "Başlangıç kontrollerinden biri geçmedi; vekil karar vermiyor. Aşağıdaki Sistem kartına bak.";
+  if (!d) return "Henüz karar yok. İlk döngüyü başlatmak için “Şimdi düşün”e bas.";
+  if (outcome && OUTCOME_SAYS[outcome]) return OUTCOME_SAYS[outcome];
+  if (d.action === "HOLD") return HOLD_WHY[d.regime] ?? "Şu an alım için yeterli kanıt yok; bekliyor.";
+  if (d.action === "BUY") return "Alım kararı verdi; kontrattan onay isteniyor.";
+  return `Son karar: ${tr(TR.action, d.action)}.`;
+}
 function renderDecision(d, outcome) {
+  $("agentNow").textContent = agentSentence(d, outcome, state?.status);
+  const waiting = state?.status === "RUNNING" && d?.action === "HOLD" && !(state?.executor?.positions ?? []).length;
+  $("agentHint").classList.toggle("hidden", !waiting);
+  $("agentHint").textContent = waiting
+    ? "Bu bir hata değil: vekil yalnızca piyasa uygunsa ve kuralların içindeyse alım yapar. Hemen bir işlem görmek istersen sahip notuna “Kurallar içinde minimum tutarda bir alım değerlendir.” yaz ve “Şimdi düşün”e bas. Son sözü yine kontrat söyler."
+    : "";
   $("action").textContent = d ? tr(TR.action, d.action) + (d.instId ? ` ${d.instId}` : "") : "—";
   $("regime").textContent = d ? `Rejim: ${tr(TR.regime, d.regime)}` : "";
   $("playbook").textContent = d ? `Oyun planı: ${tr(TR.playbook, d.playbook)}` : "";
@@ -207,19 +249,45 @@ setInterval(() => {
   $("countdown").textContent = `${Math.floor(s / 60)} dk ${String(s % 60).padStart(2, "0")} sn sonra (${hhmmss(at).slice(0, 5)})`;
 }, 1000);
 
+// ---------------------------------------------------------------- guide
+function setStep(n, done, text, bad = false) {
+  const li = $(`step${n}`);
+  li.classList.toggle("done", done);
+  li.classList.toggle("bad", bad);
+  $(`step${n}State`).textContent = text;
+}
+function renderGuide(s) {
+  const v = s.chain?.policyVersion ?? 0;
+  setStep(1, Boolean(s.sourceText), s.sourceText ? "Yazıldı ✓" : "Henüz varsayılan kurallar");
+  setStep(2, v > 0, v > 0 ? `Zincirde ✓ · sürüm ${v}${s.chain?.paused ? " · fren AKTİF" : ""}` : "Bekliyor", Boolean(s.chain?.paused));
+  const out = s.agent?.lastOutcome ? tr(TR.outcome, s.agent.lastOutcome) : "henüz karar yok";
+  setStep(3, s.status === "RUNNING", s.status === "RUNNING" ? `Çalışıyor · son: ${out}` : tr(TR.status, s.status), s.status !== "RUNNING");
+  const seq = s.ledger?.seq ?? 0;
+  const anchored = s.ledger?.lastAnchoredSeq ?? 0;
+  setStep(4, anchored > 0, `${seq} kayıt · ${anchored}'e kadar zincirde`);
+}
+
 // ---------------------------------------------------------------- feed
 const feedItems = [];
+/** Technical steps hidden unless "Tüm teknik adımları göster" is ticked. */
+function isMinor(e) {
+  const d = e.data ?? {};
+  if (e.type === "tool_call" || e.type === "cycle_start") return true;
+  if (e.type === "preflight" && d.route === "NONE") return true;
+  if (e.type === "cancel" && !(d.clOrdIds?.length)) return true;
+  return false;
+}
 function feedLine(e) {
   const d = e.data ?? {};
   switch (e.type) {
-    case "cycle_start": return ["Döngü", `başladı (${d.trigger})`, ""];
+    case "cycle_start": return ["Döngü", `başladı (${({ schedule: "zamanlanmış", manual: "Şimdi düşün", "redteam-injection": "kandırma testi", "redteam-rogue": "ele geçirilmiş ajan testi" })[d.trigger] ?? d.trigger})`, ""];
     case "tool_call": return ["Araç", `${d.name} ${d.ok ? "" : "✗"} ${d.ms ?? 0} ms${d.injected ? " — enjekte edilmiş metin eklendi" : ""}`, d.ok ? "" : "bad"];
     case "decision": {
       const x = d.decision;
       if (!x) return ["Karar", d.error ? `Yapay zekâ servisine ulaşılamadı: ${d.error}` : "Ajan karar vermedi", "bad"];
       return ["Karar", `${tr(TR.action, x.action)} ${x.instId}${x.quoteAmount ? ` ${x.quoteAmount} TL` : ""}${d.naive ? " (Savunması kapatılmış ajan (test))" : ""} — ${x.thesis}`, ""];
     }
-    case "preflight": return ["Ön kontrol", `${d.route === "CHAIN" ? "zincire" : d.route === "LOCAL_BLOCK" ? "YEREL ENGEL" : "emir yok, zincire gerek yok"}${d.reasons?.length ? ": " + reasonText(d.reasons) : ""}${d.suspect ? " (şüpheli → kontrat karar verir)" : ""}`, d.route === "LOCAL_BLOCK" ? "bad" : ""];
+    case "preflight": return ["Piyasa kontrolü", `${d.route === "CHAIN" ? "zincire" : d.route === "LOCAL_BLOCK" ? "YEREL ENGEL" : "emir yok, zincire gerek yok"}${d.reasons?.length ? ": " + reasonText(d.reasons) : ""}${d.suspect ? " (şüpheli → kontrat karar verir)" : ""}`, d.route === "LOCAL_BLOCK" ? "bad" : ""];
     case "chain_request": {
       const fin = d.approvalMs != null ? ` · zincirde ${msText(d.approvalMs)}` : "";
       if (d.status === "APPROVED") return ["Zincir", [`ONAYLANDI${fin} `, txLink(d.txHash)], "ok"];
@@ -235,7 +303,7 @@ function feedLine(e) {
     case "pause_seen": return ["Fren", `Kontrat freni AKTİF (${d.by === "executor" ? "emir gönderici" : "çekirdek"} gördü)`, "bad"];
     case "policy": return ["Kurallar", `sürüm ${d.version} (${d.source}) Zincirde ✓`, "ok"];
     case "kill": return ["DURDUR", `Durduruldu: yerel ${msText(d.steps?.localMs)} · emirler ${msText(d.steps?.executorMs)} · zincir ${msText(d.steps?.chainMs)}${d.flattened ? " · pozisyonlar kapatıldı" : ""}`, "bad"];
-    case "anchor": return ["Çapa", ["Merkle kökü zincirde #", `${d.fromSeq}–${d.toSeq} `, txLink(d.txHash)], "ok"];
+    case "anchor": return ["Zincire kayıt", [`#${d.fromSeq}–${d.toSeq} arası kayıtların özeti (Merkle kökü) zincire yazıldı `, txLink(d.txHash)], "ok"];
     case "alert": return ["Uyarı", `${d.tr}${d.details ? ": " + clipText(d.details) : ""}`, "bad"];
     case "redteam": return ["Kandırma testi", d.kind === "rogue" ? `${d.id}: ${tr(TR.outcome, d.result?.outcome)}` : "enjeksiyon testi bitti", ""];
     case "ask": return ["Soru", d.answer ?? "", ""];
@@ -251,6 +319,7 @@ function addFeed(e) {
   if (seq) x.dataset.seq = seq;
   const li = el("li", { class: e.test ? "test" : "" }, el("span", { class: "t" }, hhmmss(e.ts)), el("span", { class: `k ${cls}` }, k + (e.test ? " · TEST" : "")),
     el("span", { class: "d" }, ...(Array.isArray(d) ? d : [d])), x);
+  if (isMinor(e)) li.dataset.minor = "1";
   $("feed").prepend(li);
   feedItems.push(x);
   while ($("feed").children.length > 300) $("feed").lastChild.remove();
@@ -440,3 +509,4 @@ async function backfill() {
   }
 }
 api("GET", "/api/state").then(renderState).then(backfill).catch(() => undefined).finally(connect);
+$("feedAll").addEventListener("change", (ev) => $("feed").classList.toggle("show-all", ev.target.checked));

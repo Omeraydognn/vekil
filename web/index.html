@@ -53,6 +53,24 @@
     <span id="erc8004" class="badge hidden"></span>
   </section>
   <div id="alerts" class="alerts" role="alert"></div>
+  <div id="haltHelp" class="halt-help hidden" role="status">
+    <b>Vekil durduruldu.</b> Yeni karar vermiyor; açık pozisyonlar yine korunur ve “Pozisyonu kapat” çalışır.
+    Devam etmek senin elinde, bilerek terminalden yapılır (güvenlik gereği panelde düğme yok):
+    <ol>
+      <li id="haltHelpUnpause">Kontrat freni aktifse: <code>pnpm owner:pause --unpause</code></li>
+      <li><code>pnpm dev</code>'i Ctrl+C ile durdur, sonra <code>pnpm resume</code> çalıştırıp <b>DEVAM</b> yaz</li>
+      <li><code>pnpm dev</code> ile yeniden başlat ve bu sayfayı yenile</li>
+    </ol>
+  </div>
+
+  <section class="guide" aria-label="Nasıl çalışır">
+    <ol class="steps">
+      <li id="step1"><a href="#cardWrite"><b>1</b><span class="st-title">Kuralını yaz</span><span class="st-desc">Türkçe anlat; yapay zekâ kontrat alanlarına çevirir.</span><span class="st-state" id="step1State"></span></a></li>
+      <li id="step2"><a href="#cardPolicy"><b>2</b><span class="st-title">Zincire yaz</span><span class="st-desc">Onaylayınca kural Avalanche'taki kontrat olur. Vekil bunu değiştiremez.</span><span class="st-state" id="step2State"></span></a></li>
+      <li id="step3"><a href="#cardAgent"><b>3</b><span class="st-title">Vekil çalışır</span><span class="st-desc">Piyasayı okur, karar verir. Her alım için kontrattan onay ister.</span><span class="st-state" id="step3State"></span></a></li>
+      <li id="step4"><a href="#cardVerify"><b>4</b><span class="st-title">Doğrula</span><span class="st-desc">Her adım kayıtlı; zincirdeki kanıtla kendin kontrol et.</span><span class="st-state" id="step4State"></span></a></li>
+    </ol>
+  </section>
 
   <main class="grid">
     <section class="card" id="cardWrite">
@@ -76,6 +94,7 @@
 
     <section class="card" id="cardPolicy">
       <div class="card-heading"><span class="section-number">02 / SINIRLAR</span><span class="mini-label">ZİNCİRDE</span></div><h2>Rotanın sınırları.</h2>
+      <p class="card-intro">Kontratın şu an uyguladığı kurallar. Vekil bunların dışında bir alım isterse kontrat reddeder ve kayda geçirir.</p>
       <blockquote id="sourceText" class="source">—</blockquote>
       <table class="kv" id="policyFields"></table>
       <div class="meta"><span id="policyVersion"></span> <span id="policyOnChain" class="ok"></span></div>
@@ -83,21 +102,26 @@
 
     <section class="card" id="cardAgent">
       <div class="card-heading"><span class="section-number">03 / VEKİLİN</span><span class="mini-label">KARAR MERKEZİ</span></div><h2>Her kararın bir gerekçesi var.</h2>
+      <p id="agentNow" class="now"></p>
+      <p id="agentHint" class="hint hidden"></p>
       <div class="row badges"><span id="action" class="badge strong"></span><span id="regime" class="badge"></span><span id="playbook" class="badge"></span><span id="confidence" class="badge"></span><span id="outcome" class="badge"></span></div>
       <h3>Kanıtlar</h3><ul id="evidence"></ul>
-      <div class="two">
-        <div><h3>Yükseliş senaryosu</h3><p id="bull" class="muted"></p></div>
-        <div><h3>Düşüş senaryosu</h3><p id="bear" class="muted"></p></div>
-      </div>
       <h3>Gerekçe</h3><p id="thesis"></p>
-      <h3>Bu fikri bozan durum</h3><p id="invalidation" class="muted"></p>
-      <h3>Ders</h3><p id="lesson" class="muted"></p>
+      <details class="more">
+        <summary>Ayrıntılı gerekçe: senaryolar, bu fikri bozan durum, ders</summary>
+        <div class="two">
+          <div><h3>Yükseliş senaryosu</h3><p id="bull" class="muted"></p></div>
+          <div><h3>Düşüş senaryosu</h3><p id="bear" class="muted"></p></div>
+        </div>
+        <h3>Bu fikri bozan durum</h3><p id="invalidation" class="muted"></p>
+        <h3>Ders</h3><p id="lesson" class="muted"></p>
+      </details>
       <div class="row">
         <button id="btnThink" class="primary">Şimdi düşün</button>
         <span>Sonraki kontrol: <b id="countdown">—</b></span>
         <span id="model" class="muted"></span>
       </div>
-      <label class="field-label" for="ownerNote">Vekiline bir not bırak</label><div class="row">
+      <label class="field-label" for="ownerNote">Vekiline bir not bırak <span class="muted">(bir sonraki kararda dikkate alır; kuralları aşamaz)</span></label><div class="row">
         <input type="text" autocomplete="off" id="ownerNote" maxlength="300" placeholder="Sahip notu (bir döngü için)">
         <button id="btnNote">Sahip notu gönder</button>
       </div>
@@ -106,6 +130,7 @@
 
     <section class="card" id="cardPosition">
       <div class="card-heading"><span class="section-number">04 / BUGÜN</span><span class="mini-label">AVAX / TRY</span></div><h2>Durumun özeti.</h2>
+      <p class="card-intro">Açık pozisyonun ve bugün zincirde kullanılan işlem hakkı ile risk bütçesi.</p>
       <div id="positions"><p class="muted">Açık pozisyon yok.</p></div>
       <table class="kv">
         <tr><th>Gerçekleşen K/Z</th><td id="realized"></td></tr>
@@ -117,8 +142,18 @@
       </table>
     </section>
 
+    <div class="divider" id="trust">
+      <span class="eyebrow">GÜVEN KATMANI</span>
+      <h2>Kurallar gerçekten uygulanıyor mu?</h2>
+      <p>Bu bölüm kanıt içindir: ajanı kandırmayı dene, kayıtları zincirle karşılaştır, borsadaki emirleri onaylarla eşleştir. Günlük kullanımda yukarıdaki kartlar yeterli.</p>
+    </div>
+
     <section class="card" id="cardRedteam">
-      <span class="section-number">05 / DAYANIKLILIK</span><h2>Sınırları sına.</h2><p class="card-intro">Ajan kuralların dışına çıkmaya çalışırsa ne olur?</p>
+      <span class="section-number">05 / DAYANIKLILIK</span><h2>Sınırları sına.</h2><p class="card-intro">Ajan kuralların dışına çıkmaya çalışırsa ne olur? İki test de borsaya emir göndermez. Kontrat reddeder ve freni çeker; ardından vekil durur. Devam için yukarıdaki “Vekil durduruldu” adımlarını izle.</p>
+      <ul class="explain">
+        <li><b>Zararlı haber enjekte et:</b> savunması kapatılmış ajana sahte bir “10.000 TL DOGE al, zarar-kes koyma” haberi verilir.</li>
+        <li><b>Ele geçirilmiş yapay zekâ:</b> ajan tamamen kötü niyetliymiş gibi aynı emri doğrudan kontrata yollar.</li>
+      </ul>
       <div class="row">
         <button id="btnInjection" class="danger outline">Zararlı haber enjekte et</button>
         <button id="btnRogue" class="danger outline">Ele geçirilmiş yapay zekâ</button>
@@ -127,7 +162,13 @@
     </section>
 
     <section class="card" id="cardVerify">
-      <span class="section-number">06 / DOĞRULAMA</span><h2>Güven. Ama doğrula.</h2><p class="card-intro">Kayıtların bütünlüğünü zincirdeki kanıtlarla kontrol et.</p>
+      <span class="section-number">06 / DOĞRULAMA</span><h2>Güven. Ama doğrula.</h2><p class="card-intro">Vekilin her adımı bir kayıt defterine zincirleme yazılır ve özetleri (Merkle kökü) Avalanche'a çapalanır.</p>
+      <ul class="explain">
+        <li><b>Doğrula:</b> tüm kayıt defterini zincirdeki onaylar, retler ve kurallarla karşılaştırır (V1–V6).</li>
+        <li><b>Kanıtla</b> (günlükte her satırda): o tek kaydın zincirde olduğunu kontratın kendisine doğrulatır.</li>
+        <li><b>Şimdi çapala:</b> son kayıtları hemen zincire yazar (normalde saatte bir).</li>
+        <li><b>Kurcalama testi:</b> bir kaydın kopyasını bozar ve sistemin bunu yakaladığını gösterir. Gerçek kayıt değişmez.</li>
+      </ul>
       <div class="row">
         <button id="btnVerify">Doğrula</button>
         <button id="btnTamper" class="outline">Kurcalama testi</button>
@@ -140,17 +181,20 @@
 
     <section class="card" id="cardAudit">
       <span class="section-number">07 / DENETİM</span><h2>Emirlerin izini sür.</h2>
+      <p class="card-intro">Borsadaki her ajan emrinin kimliği (clOrdId) zincirdeki onaydan türetilir. Denetçi, onaysız tek bir emir varsa kırmızıyla gösterir. Bunun için yalnızca okuma anahtarı ve herkese açık zincir yeterli.</p>
       <div class="row"><button id="btnAudit">Denetle</button><span id="auditSummary" class="muted"></span></div>
       <div class="table-scroll" tabindex="0" role="region" aria-label="Emir denetimi"><table class="audit"><thead><tr><th>clOrdId</th><th>Tür</th><th>Durum</th><th>Ayrıntı</th></tr></thead><tbody id="auditBody"></tbody></table></div>
     </section>
 
     <section class="card wide" id="cardFeed">
       <div class="card-heading"><span class="section-number">08 / İŞLEM GÜNLÜĞÜ</span><span class="mini-label">ADIM ADIM, KAYIT ALTINDA</span></div><h2>Vekilin neler yapıyor?</h2>
+      <div class="row"><p class="card-intro" style="margin:0">Kararlar, zincir onayları, emirler ve çıkışlar. En yeni üstte.</p><label class="check" style="margin:0 0 0 auto"><input type="checkbox" id="feedAll"> Tüm teknik adımları göster</label></div>
       <ol id="feed" class="feed"></ol>
     </section>
 
     <section class="card wide" id="cardStartup">
       <span class="section-number">09 / SİSTEM</span><h2>Yola çıkmadan önce.</h2>
+      <p class="card-intro">Başlarken yapılan güvenlik kontrolleri: okuma anahtarı salt-okunur mu, emir gönderici ayrı mı, kontrat erişilebilir mi, veri klasörü bu çalıştırmaya mı ait.</p>
       <ul id="startup" class="checks"></ul>
     </section>
   </main>

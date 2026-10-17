@@ -163,8 +163,33 @@ ul { padding-left: 20px; }
 footer { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 40px max(24px, calc((100% - var(--page-max-width)) / 2)); color: var(--bg); background: var(--ink); }
 footer p { margin: 0; font-size: 13px; }
 footer > a:last-child { font-size: 12px; padding: 12px 0; }
+/* ---- plain-language layer: step guide, "what is it doing now", halt help, trust divider ---- */
+.guide { max-width: var(--page-max-width); margin: 24px auto 0; }
+.steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.steps a { display: grid; grid-template-columns: 32px 1fr; column-gap: 12px; row-gap: 4px; height: 100%; padding: 16px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); text-decoration: none; }
+.steps b { grid-row: span 3; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--color-sage-border); font-size: 13px; }
+.steps .st-title { font-weight: 600; font-size: 14px; }
+.steps .st-desc { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.steps .st-state { font-size: 11px; font-weight: 600; color: var(--muted); }
+.steps li.done b { background: var(--color-meadow); border-color: transparent; }
+.steps li.done .st-state { color: var(--ok); }
+.steps li.bad .st-state { color: var(--bad); }
+.halt-help { max-width: var(--page-max-width); margin: 16px auto 0; padding: 16px 20px; border: 1px solid var(--bad); border-radius: 12px; background: var(--bad-bg); color: var(--bad); font-size: 13px; }
+.halt-help ol { margin: 8px 0 0; }
+.halt-help code, .explain code { font-family: ui-monospace, monospace; font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 6px; border-radius: 4px; }
+.now { font-size: 17px; line-height: 1.5; margin: 0 0 12px; color: var(--bg); }
+.hint { font-size: 13px; padding: 12px 14px; border: 1px dashed var(--color-driftwood); border-radius: 10px; color: var(--muted); }
+details.more { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+details.more summary { cursor: pointer; font-size: 12px; color: var(--muted); min-height: 32px; }
+.explain { margin: 0 0 20px; padding-left: 18px; font-size: 13px; color: var(--muted); }
+.explain li { margin: 6px 0; }
+.explain b { color: var(--ink); }
+.divider { grid-column: 1 / -1; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }
+.divider h2 { font-size: 44px; margin: 8px 0; }
+.divider p { color: var(--muted); max-width: 70ch; font-size: 14px; margin: 0; }
+.feed:not(.show-all) li[data-minor] { display: none; }
 @media (max-width: 1250px) {
-  .hero-inner, .workspace-heading, .system-bar, .alerts, .grid { margin-left: 24px; margin-right: 24px; }
+  .hero-inner, .workspace-heading, .system-bar, .alerts, .grid, .guide, .halt-help { margin-left: 24px; margin-right: 24px; }
   .patch { right: 0; width: 134px; height: 134px; }
 }
 @media (max-width: 1000px) {
@@ -189,7 +214,8 @@ footer > a:last-child { font-size: 12px; padding: 12px 0; }
   .brand-star { font-size: 28px; }
   nav { order: 3; width: 100%; justify-content: space-between; }
   nav a { min-height: 40px; }
-  .hero-inner, .workspace-heading, .system-bar, .alerts, .grid { margin-left: 20px; margin-right: 20px; }
+  .hero-inner, .workspace-heading, .system-bar, .alerts, .grid, .guide, .halt-help { margin-left: 20px; margin-right: 20px; }
+  .steps { grid-template-columns: 1fr 1fr; }
   .hero-inner { padding: 32px 0 132px; }
   h1 { font-size: clamp(57px, 10.8vw, 82px); letter-spacing: -1px; }
   .hero .eyebrow { font-size: 8px; letter-spacing: .1em; gap: 8px; }
