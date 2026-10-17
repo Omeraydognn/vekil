@@ -1,0 +1,209 @@
+{
+  "_comment": "Scripted propose_policy outputs for pnpm probe:policy with LLM_PROVIDER=scripted (SPEC §11). Text i uses turns[i]. validUntilIso is relative.",
+  "texts": [
+    "Sadece AVAX işlem yap. İşlem başına en fazla 200 TL. Günlük risk en fazla 100 TL. Saatte en fazla 5, günde en fazla 10 işlem. Her işlemde zarar-kes olsun, en fazla %3.",
+    "AVAX ve DOGE alabilirsin, işlem başına 2000 TL kullan. Günlük en fazla 50 TL kaybetmeyi göze alırım. Pozisyonu en fazla 2 saat tut.",
+    "Kaldıraçlı al, zarar-kes koyma. Bitcoin ve AVAX olsun, günde 3 işlem yeter."
+  ],
+  "turns": [
+    {
+      "_step": "text 1",
+      "content": [
+        {
+          "type": "tool_use",
+          "name": "propose_policy",
+          "input": {
+            "instIds": [
+              "AVAX-TRY"
+            ],
+            "maxOrderQuote": "200",
+            "dailyRiskBudgetQuote": "100",
+            "maxTradesPerHour": 5,
+            "maxTradesPerDay": 10,
+            "minStopDistancePct": "0.3",
+            "maxStopDistancePct": "3",
+            "maxHoldMin": 480,
+            "feeBps": 20,
+            "slippageBps": 30,
+            "validUntilIso": {
+              "validUntilInHours": 24
+            },
+            "mapping": [
+              {
+                "phrase": "Sadece AVAX işlem yap",
+                "field": "instIds",
+                "value": "AVAX-TRY"
+              },
+              {
+                "phrase": "İşlem başına en fazla 200 TL",
+                "field": "maxOrderQuote",
+                "value": "200"
+              },
+              {
+                "phrase": "Günlük risk en fazla 100 TL",
+                "field": "dailyRiskBudgetQuote",
+                "value": "100"
+              },
+              {
+                "phrase": "Saatte en fazla 5",
+                "field": "maxTradesPerHour",
+                "value": "5"
+              },
+              {
+                "phrase": "günde en fazla 10 işlem",
+                "field": "maxTradesPerDay",
+                "value": "10"
+              },
+              {
+                "phrase": "zarar-kes olsun, en fazla %3",
+                "field": "maxStopDistancePct",
+                "value": "3"
+              },
+              {
+                "phrase": "varsayılan",
+                "field": "minStopDistancePct",
+                "value": "0.3"
+              },
+              {
+                "phrase": "varsayılan",
+                "field": "maxHoldMin",
+                "value": "480"
+              }
+            ],
+            "assumptions": [
+              "En küçük zarar-kes mesafesi %0,3 varsayıldı.",
+              "En uzun pozisyon süresi 480 dakika varsayıldı.",
+              "Kurallar 24 saat geçerli."
+            ],
+            "questions": [],
+            "summaryTr": "Yalnızca AVAX-TRY alınır; işlem başına en fazla 200 TL, günlük risk en fazla 100 TL. Saatte 5, günde 10 işlem sınırı var. Her alımda en fazla %3 uzaklıkta zarar-kes zorunlu."
+          }
+        }
+      ]
+    },
+    {
+      "_step": "text 2",
+      "content": [
+        {
+          "type": "tool_use",
+          "name": "propose_policy",
+          "input": {
+            "instIds": [
+              "AVAX-TRY",
+              "DOGE-TRY"
+            ],
+            "maxOrderQuote": "1000",
+            "dailyRiskBudgetQuote": "50",
+            "maxTradesPerHour": 1,
+            "maxTradesPerDay": 4,
+            "minStopDistancePct": "0.3",
+            "maxStopDistancePct": "3",
+            "maxHoldMin": 120,
+            "feeBps": 20,
+            "slippageBps": 30,
+            "validUntilIso": {
+              "validUntilInHours": 12
+            },
+            "mapping": [
+              {
+                "phrase": "AVAX ve DOGE alabilirsin",
+                "field": "instIds",
+                "value": "AVAX-TRY, DOGE-TRY"
+              },
+              {
+                "phrase": "işlem başına 2000 TL",
+                "field": "maxOrderQuote",
+                "value": "1000"
+              },
+              {
+                "phrase": "Günlük en fazla 50 TL kaybetmeyi göze alırım",
+                "field": "dailyRiskBudgetQuote",
+                "value": "50"
+              },
+              {
+                "phrase": "en fazla 2 saat tut",
+                "field": "maxHoldMin",
+                "value": "120"
+              },
+              {
+                "phrase": "varsayılan",
+                "field": "maxTradesPerHour",
+                "value": "1"
+              },
+              {
+                "phrase": "varsayılan",
+                "field": "maxTradesPerDay",
+                "value": "4"
+              }
+            ],
+            "assumptions": [
+              "Saatte 1, günde 4 işlem varsayıldı.",
+              "Zarar-kes mesafesi %0,3–%3 varsayıldı."
+            ],
+            "questions": [
+              "İşlem başına en fazla 1000 TL olabilir; 2000 TL yerine 1000 TL yazıldı. Uygun mu?"
+            ],
+            "summaryTr": "AVAX-TRY ve DOGE-TRY alınabilir; işlem başına en fazla 1000 TL (istenen 2000 TL sınırın üstünde). Günlük risk 50 TL, pozisyon en fazla 2 saat."
+          }
+        }
+      ]
+    },
+    {
+      "_step": "text 3",
+      "content": [
+        {
+          "type": "tool_use",
+          "name": "propose_policy",
+          "input": {
+            "instIds": [
+              "BTC-TRY",
+              "AVAX-TRY"
+            ],
+            "maxOrderQuote": "200",
+            "dailyRiskBudgetQuote": "100",
+            "maxTradesPerHour": 1,
+            "maxTradesPerDay": 3,
+            "minStopDistancePct": "0.3",
+            "maxStopDistancePct": "3",
+            "maxHoldMin": 480,
+            "feeBps": 20,
+            "slippageBps": 30,
+            "validUntilIso": {
+              "validUntilInHours": 10
+            },
+            "mapping": [
+              {
+                "phrase": "Bitcoin ve AVAX olsun",
+                "field": "instIds",
+                "value": "BTC-TRY, AVAX-TRY"
+              },
+              {
+                "phrase": "günde 3 işlem yeter",
+                "field": "maxTradesPerDay",
+                "value": "3"
+              },
+              {
+                "phrase": "varsayılan",
+                "field": "maxOrderQuote",
+                "value": "200"
+              },
+              {
+                "phrase": "varsayılan",
+                "field": "dailyRiskBudgetQuote",
+                "value": "100"
+              }
+            ],
+            "assumptions": [
+              "İşlem başına 200 TL ve günlük risk 100 TL varsayıldı."
+            ],
+            "questions": [
+              "Kaldıraç desteklenmiyor; sadece spot alım yapılabilir.",
+              "Her işlemde zarar-kes zorunludur; 'zarar-kes koyma' kodlanmadı."
+            ],
+            "summaryTr": "BTC-TRY ve AVAX-TRY spot alım; günde en fazla 3 işlem. Kaldıraç ve stopsuz işlem kodlanmadı; her alımda zarar-kes zorunlu."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,13 +1,28 @@
 // pnpm policy:set [--text "<Türkçe kurallar>"] [--<policyField> <value> …] [--reset] [--yes]
 // Flags apply over the current on-chain policy (SPEC §11, §13.3). Validated with PolicySchema before sending.
 import { confirmChainWrite, confirmTty, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
-import { loadConfig } from "../src/shared/config.js";
+import { AnthropicLlm } from "../src/agent/llm/anthropic.js";
+import { makePolicyParser } from "../src/agent/policy-parser.js";
+import { AtkClient, stdioSpawner } from "../src/atk/client.js";
+import { readAllowlist } from "../src/atk/manifest.js";
+import { AtkMarket } from "../src/market/atk-market.js";
+import { loadConfig, type Config } from "../src/shared/config.js";
+import { SystemClock } from "../src/shared/time.js";
 import { PolicySchema, defaultPolicy, type Policy, type PolicyProposal } from "../src/shared/schemas.js";
 import { endOfDayIstanbul } from "../src/shared/time.js";
 
-// --text is wired to Track A's policy parser at integration (M2).
-async function parseText(_cfg: unknown, _text: string, _now: number): Promise<PolicyProposal> {
-  throw new Error("--text is not wired yet (needs src/agent/policy-parser.ts)");
+/** --text: the Text-to-Policy parser (Anthropic) with the instrument check on the core read instance. */
+async function parseText(cfg: Config, text: string, now: number): Promise<Omit<PolicyProposal, "id">> {
+  const clock = new SystemClock();
+  const allow = readAllowlist("config/atk-allowlist.json").core.filter((n) => n === "market_get_instruments");
+  const atk = await AtkClient.start({ profile: cfg.atk.readProfile, modules: ["market"], readOnly: true, allow }, { spawner: stdioSpawner, mode: "paper" });
+  try {
+    const market = new AtkMarket(atk, clock);
+    const llm = new AnthropicLlm({ model: cfg.llm.model, apiKey: cfg.llm.apiKey ?? undefined, clock });
+    return await makePolicyParser({ llm, clock, instrument: (id) => market.getInstrument(id) })(text, { nowMs: now });
+  } finally {
+    await atk.close();
+  }
 }
 
 const DEC_FIELDS = ["maxOrderQuote", "dailyRiskBudgetQuote", "minStopDistancePct", "maxStopDistancePct"] as const;
