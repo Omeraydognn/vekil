@@ -56,8 +56,17 @@ describe("policy-parser", () => {
     expect(p.questions).toEqual(["Stopsuz işlem desteklenmiyor."]);
   });
 
+  it("retries once when the model answers in text, and accepts a JSON object from the text", async () => {
+    const retried = new ScriptedLlm([{ content: [{ type: "text", text: "Tamam." }] }, { content: [{ type: "tool_use", name: PROPOSE_POLICY, input: base }] }], { clock });
+    expect((await makePolicyParser({ llm: retried, clock, instrument })("Sadece AVAX al.", { nowMs: NOW })).errors).toEqual([]);
+    expect(retried.requests[1]!.messages.at(-1)).toMatchObject({ role: "user", content: expect.stringContaining("propose_policy") });
+    const asText = new ScriptedLlm([{ content: [{ type: "text", text: "x" }] }, { content: [{ type: "text", text: "```json\n" + JSON.stringify({ ...base, maxOrderQuote: "5000" }) + "\n```" }] }], { clock });
+    const p = await makePolicyParser({ llm: asText, clock, instrument })("Sadece AVAX al.", { nowMs: NOW });
+    expect(p.policy.maxOrderQuote).toBe("1000"); // still validated and capped in code
+  });
+
   it("throws when the model does not call the tool or the text is too long", async () => {
-    const none = new ScriptedLlm([{ content: [{ type: "text", text: "hayır" }] }], { clock });
+    const none = new ScriptedLlm([{ content: [{ type: "text", text: "hayır" }] }, { content: [{ type: "text", text: "yine hayır" }] }], { clock });
     await expect(makePolicyParser({ llm: none, clock, instrument })("x", { nowMs: NOW })).rejects.toThrow(/propose_policy/);
     await expect(makePolicyParser({ llm: llmWith(base), clock, instrument })("a".repeat(1001), { nowMs: NOW })).rejects.toThrow(/1000/);
   });

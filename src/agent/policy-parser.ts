@@ -160,6 +160,53 @@ export async function validateDraft(
   return { policy, errors, questions };
 }
 
+export const RETRY_NUDGE = `Call the ${"propose_policy"} tool now, exactly once, with every field. Do not answer in plain text.`;
+
+/** The first JSON object in a text answer (models that answer in text instead of calling the tool). */
+export function jsonFromText(text: string): unknown | null {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
+  const candidate = fenced?.[1] ?? text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    return JSON.parse(candidate.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The model's draft: the propose_policy call; if the model answered in text, one retry with a clear instruction;
+ * then a JSON object in the text. Everything is validated in code afterwards, whichever way it arrived.
+ */
+async function draftInput(deps: PolicyParserDeps, req: LlmRequest, signal: AbortSignal): Promise<unknown> {
+  const toolInput = (r: Awaited<ReturnType<LlmClient["create"]>>): unknown | undefined =>
+    r.content.find((b): b is Extract<typeof b, { type: "tool_use" }> => b.type === "tool_use" && b.name === PROPOSE_POLICY)?.input;
+  const textOf = (r: Awaited<ReturnType<LlmClient["create"]>>): string =>
+    r.content.map((b) => (b.type === "text" ? b.text : "")).join("\n");
+  const first = await deps.llm.create(req, signal);
+  const a = toolInput(first);
+  if (a !== undefined) return a;
+  const firstText = textOf(first);
+  const retry = await deps.llm.create(
+    {
+      ...req,
+      messages: [
+        ...req.messages,
+        ...(firstText.trim() ? [{ role: "assistant" as const, content: firstText }] : []),
+        { role: "user" as const, content: RETRY_NUDGE },
+      ],
+    },
+    signal,
+  );
+  const b = toolInput(retry);
+  if (b !== undefined) return b;
+  const fromText = jsonFromText(textOf(retry)) ?? jsonFromText(firstText);
+  if (fromText !== null) return fromText;
+  throw new Error("the model did not call propose_policy");
+}
+
 export function makePolicyParser(deps: PolicyParserDeps): (text: string, ctx: { nowMs: number }) => Promise<Omit<PolicyProposal, "id">> {
   return async (textIn, { nowMs }) => {
     const text = textIn.trim();
@@ -172,11 +219,9 @@ export function makePolicyParser(deps: PolicyParserDeps): (text: string, ctx: { 
       toolChoice: { type: "tool", name: PROPOSE_POLICY },
       maxTokens: 2000,
     };
-    const signal = AbortSignal.timeout(deps.timeoutMs ?? 60_000);
-    const resp = await deps.llm.create(req, signal);
-    const call = resp.content.find((b) => b.type === "tool_use" && b.name === PROPOSE_POLICY);
-    if (!call || call.type !== "tool_use") throw new Error("the model did not call propose_policy");
-    const draft = DraftSchema.safeParse(call.input);
+    const signal = AbortSignal.timeout(deps.timeoutMs ?? 90_000);
+    const input = await draftInput(deps, req, signal);
+    const draft = DraftSchema.safeParse(input);
     if (!draft.success) throw new Error(`propose_policy input invalid: ${draft.error.issues.map((i) => i.path.join(".")).join(", ")}`);
     const v = await validateDraft(draft.data, text, nowMs, deps.instrument);
     return {

@@ -10,8 +10,8 @@ import { OrderNotFoundError, OrderRejectedError } from "./types.js";
 
 const BalanceRow = z.looseObject({ details: z.array(z.looseObject({ ccy: z.string(), availBal: z.string() })) });
 const DecStr = /^\d+(\.\d+)?$/;
-// UNVERIFIED (ATK_NOTES §8): OKX v5 documents 51603 "Order does not exist"; ATK's error envelope for it on TR has not
-// been observed. Anything else is treated as "unknown", which fails closed for entries and is bounded for exits.
+// VERIFIED on OKX TR (ATK_NOTES §8): an unknown order is isError { code: "51603", message: "Order does not exist" }.
+// Anything else is "unknown": entries fail closed and an unknown exit is never released.
 const OKX_ORDER_NOT_FOUND = new Set(["51603"]);
 const NOT_FOUND_MSG = /does not exist|not exist|not found/i;
 
