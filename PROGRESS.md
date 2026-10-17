@@ -94,5 +94,6 @@ The owner exits (formerly S6) are now Must M17.
 - [x] 15 anvil on every dev machine — this Mac: anvil/forge 1.5.1-stable (check other machines)
 
 ## Known bugs / follow-ups
+- SPEC question (for the human): `recordExit` is once per entry, but a partial exit leaves a remainder that a second x-order sells; V5 / the auditor would flag that second exit. Market sells normally fill fully; unfilled retries are already ignored by the auditor.
 - Deferred to M3 (not built yet): SC4, SC6, SC9, SC10, SC12, SC14; `register-agent` + `docs/agent-card.json` (ERC-8004 ABI not verified); `pnpm evidence` (S7); `executor.Dockerfile` (S3); "Ajana sor" (S2).
 - `pnpm atk:probe` must be re-run with the `tr-read` profile to fill the auth-only items in ATK_NOTES (balance shape, fee, key permissions, demo, news).

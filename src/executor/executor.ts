@@ -44,6 +44,8 @@ export interface ExecutorOpts {
   clock: Clock;
   store: StateStore<ExecutorState>;
   atk: ExecutorHealth["atk"];
+  /** Entries placed but not yet final (survives a restart; recover() resumes them). Default: in memory. */
+  pendingStore?: StateStore<PendingEntry[]>;
   /** Extra instruments to sweep on cancel-all (besides the policy's and the positions'). */
   instIds?: string[];
   /** 32 random bytes as 0x-hex (exit nonces); injectable for tests. */
@@ -52,6 +54,17 @@ export interface ExecutorOpts {
   pollTimeoutMs?: number;
   backgroundPollMs?: number;
 }
+
+/** An entry that was placed and has no FILL / NOT_FILLED yet. */
+export interface PendingEntry {
+  orderHash: Hex32;
+  req: OrderRequest;
+  approvalAt: number;
+}
+
+/** Background polls of an exit give up after this many tries, clear `exiting` and alert, so exits can be retried
+ * (the next sell is bounded by our inventory and the account's base balance, so it can never oversell). */
+export const EXIT_POLL_MAX_TRIES = 12;
 
 export class ExecutorStateMismatchError extends Error {
   override name = "ExecutorStateMismatchError";
@@ -66,6 +79,7 @@ export class Executor implements ExecutorApi {
   private readonly entryLocks = new Set<string>();
   private readonly tickerFails = new Map<string, number>();
   private readonly background = new Set<string>();
+  private pending: PendingEntry[] = [];
   private stopped = false;
   private readonly randomHex32: () => Hex32;
 
@@ -79,6 +93,7 @@ export class Executor implements ExecutorApi {
         );
       }
       this.st = loaded;
+      this.pending = o.pendingStore?.load() ?? [];
     } else {
       this.st = { mode: o.mode, chainId: o.chainId, policy: o.policy, halted: false, lastSeenPaused: false, executed: [], inventory: {}, positions: [], events: [] };
       this.save();
@@ -116,6 +131,47 @@ export class Executor implements ExecutorApi {
 
   private baseCcy(instId: string, spec: InstrumentSpec | null): string {
     return spec?.baseCcy ?? instId.split("-")[0] ?? instId;
+  }
+
+  private savePending(): void {
+    this.o.pendingStore?.save(this.pending);
+  }
+
+  /**
+   * After a restart: resolve every exit that was in flight and every entry that was placed but never reached a final
+   * state, so no position is left unprotected or un-exitable. Call once before serving.
+   */
+  async recover(): Promise<void> {
+    for (const pos of this.st.positions) {
+      if (!pos.exiting) continue;
+      const spec = await this.spec(pos.instId);
+      const clOrdId = pos.exiting.clOrdId;
+      try {
+        const o = await this.o.exchange.getOrder(pos.instId, clOrdId);
+        if (TERMINAL_STATES.has(o.state)) this.onExitFinal(pos.entryOrderHash, o, spec);
+        else this.pollExitInBackground(pos.entryOrderHash, pos.instId, clOrdId, spec);
+      } catch (e) {
+        if (e instanceof OrderNotFoundError) {
+          pos.exiting = null; // never reached the exchange: the monitor / owner can exit again
+          this.save();
+        } else this.pollExitInBackground(pos.entryOrderHash, pos.instId, clOrdId, spec);
+      }
+    }
+    for (const p of [...this.pending]) {
+      const spec = await this.spec(p.req.instId);
+      const clOrdId = entryClOrdId(p.orderHash);
+      const final = (o: OrderState): void => {
+        this.onEntryFinal(p.req, p.orderHash, o, p.approvalAt, spec);
+      };
+      try {
+        const o = await this.o.exchange.getOrder(p.req.instId, clOrdId);
+        if (TERMINAL_STATES.has(o.state)) final(o);
+        else this.pollInBackground(p.req.instId, clOrdId, final);
+      } catch (e) {
+        if (e instanceof OrderNotFoundError) final({ ordId: "", clOrdId, instId: p.req.instId, side: "buy", px: p.req.px, sz: p.req.sz, state: "canceled", accFillSz: "0", avgPx: null, fee: "0", feeCcy: "", cTime: this.o.clock.now() });
+        else this.pollInBackground(p.req.instId, clOrdId, final);
+      }
+    }
   }
 
   /** Read-only view for tests and the in-process adapter. */
@@ -224,6 +280,8 @@ export class Executor implements ExecutorApi {
     // 5. Persist first, then place exactly the approved order.
     this.st.executed.push(h);
     this.save();
+    this.pending.push({ orderHash: h, req, approvalAt });
+    this.savePending();
     const spec = await this.spec(req.instId);
     try {
       await this.o.exchange.placeOrder({ instId: req.instId, side: "buy", ordType: "ioc", px: req.px, sz: req.sz, clOrdId });
@@ -253,6 +311,8 @@ export class Executor implements ExecutorApi {
 
   private onEntryFinal(req: OrderRequest, h: Hex32, o: OrderState, approvalAt: number, spec: InstrumentSpec | null): ExecutorEvent {
     const clOrdId = entryClOrdId(h);
+    this.pending = this.pending.filter((p) => p.orderHash !== h);
+    this.savePending();
     if (!decGt(o.accFillSz, "0")) return this.push("NOT_FILLED", { orderHash: h, clOrdId });
     const base = this.baseCcy(req.instId, spec);
     const feeAbs = decAbs(o.fee);
@@ -329,7 +389,7 @@ export class Executor implements ExecutorApi {
     const final = await this.pollTerminal(pos.instId, clOrdId);
     if (!final) {
       const ev = this.push("UNKNOWN", { orderHash: pos.entryOrderHash, clOrdId });
-      this.pollInBackground(pos.instId, clOrdId, (o) => this.onExitFinal(pos.entryOrderHash, o, spec));
+      this.pollExitInBackground(pos.entryOrderHash, pos.instId, clOrdId, spec);
       return { result: "UNKNOWN", refusal: null, event: ev };
     }
     const ev = this.onExitFinal(pos.entryOrderHash, final, spec);
@@ -375,7 +435,7 @@ export class Executor implements ExecutorApi {
   /** §14.3 Adjust: tighten only. */
   async adjust(entryOrderHash: Hex32, newStopPx?: PDec, newTpPx?: PDec): Promise<ExecResult> {
     const pos = this.position(entryOrderHash.toLowerCase());
-    if (!pos || (newStopPx === undefined && newTpPx === undefined)) return refused("ADJUST_INVALID");
+    if (!pos || pos.exiting !== null || (newStopPx === undefined && newTpPx === undefined)) return refused("ADJUST_INVALID");
     let bid: string;
     try {
       bid = (await this.o.market.getSnapshot(pos.instId)).bid;
@@ -393,35 +453,40 @@ export class Executor implements ExecutorApi {
 
   /** §14.6 Cancel open orders matching our clOrdId pattern (3 retries each). */
   async cancelAll(by: "kill" | "api" | "pause-watch"): Promise<string[]> {
-    const instIds = new Set<string>([...(this.o.instIds ?? []), ...this.st.positions.map((p) => p.instId), ...Object.keys(this.st.inventory)]);
-    try {
-      for (const id of (await this.o.chain.readView()).policy.instIds) instIds.add(id);
-    } catch {
-      // keep going with what we know
-    }
+    const known = new Set<string>([...(this.o.instIds ?? []), ...this.st.positions.map((p) => p.instId), ...Object.keys(this.st.inventory)]);
     const cancelled: string[] = [];
     const failed: string[] = [];
-    for (const instId of instIds) {
-      let open: OrderState[] = [];
-      try {
-        open = await this.o.exchange.listOpenOrders(instId);
-      } catch (e) {
-        failed.push(`${instId}: ${e instanceof Error ? e.message : String(e)}`);
-        continue;
-      }
-      for (const ord of open.filter((x) => CLORDID_RE.test(x.clOrdId))) {
-        let ok = false;
-        for (let i = 0; i < CANCEL_RETRIES && !ok; i++) {
-          try {
-            await this.o.exchange.cancelOrder(instId, ord.clOrdId);
-            ok = true;
-          } catch {
-            // retry
-          }
+    const sweep = async (instIds: Iterable<string>): Promise<void> => {
+      for (const instId of instIds) {
+        let open: OrderState[] = [];
+        try {
+          open = await this.o.exchange.listOpenOrders(instId);
+        } catch (e) {
+          failed.push(`${instId}: ${e instanceof Error ? e.message : String(e)}`);
+          continue;
         }
-        if (ok) cancelled.push(ord.clOrdId);
-        else failed.push(ord.clOrdId);
+        for (const ord of open.filter((x) => CLORDID_RE.test(x.clOrdId))) {
+          let ok = false;
+          for (let i = 0; i < CANCEL_RETRIES && !ok; i++) {
+            try {
+              await this.o.exchange.cancelOrder(instId, ord.clOrdId);
+              ok = true;
+            } catch {
+              // retry
+            }
+          }
+          if (ok) cancelled.push(ord.clOrdId);
+          else failed.push(ord.clOrdId);
+        }
       }
+    };
+    // Cancel what we know first; the chain read (policy instruments) never delays it.
+    await sweep(known);
+    try {
+      const extra = (await this.o.chain.readView()).policy.instIds.filter((id) => !known.has(id));
+      await sweep(extra);
+    } catch {
+      // the known instruments are already done
     }
     this.push("CANCEL", { clOrdIds: cancelled, by });
     if (failed.length) this.push("ALERT", { code: "CANCEL_FAILED", details: failed.join(", ") });
@@ -523,13 +588,34 @@ export class Executor implements ExecutorApi {
     }
   }
 
-  private pollInBackground(instId: string, clOrdId: string, onFinal: (o: OrderState) => void): void {
+  private pollExitInBackground(entryOrderHash: Hex32, instId: string, clOrdId: string, spec: InstrumentSpec | null): void {
+    this.pollInBackground(instId, clOrdId, (o) => this.onExitFinal(entryOrderHash, o, spec), {
+      maxTries: EXIT_POLL_MAX_TRIES,
+      onGiveUp: () => {
+        const pos = this.position(entryOrderHash);
+        if (pos?.exiting?.clOrdId === clOrdId) {
+          pos.exiting = null;
+          this.save();
+        }
+        this.push("ALERT", { code: "EXIT_STATE_UNKNOWN", details: `${clOrdId}: durum bilinmiyor; çıkış yeniden denenebilir` });
+      },
+    });
+  }
+
+  private pollInBackground(
+    instId: string,
+    clOrdId: string,
+    onFinal: (o: OrderState) => void,
+    limit: { maxTries: number; onGiveUp: () => void } | null = null,
+  ): void {
     if (this.background.has(clOrdId)) return;
+    let tries = 0;
     const stop = this.o.clock.every(this.o.backgroundPollMs ?? BACKGROUND_POLL_MS, async () => {
       if (this.stopped) {
         stop();
         return;
       }
+      tries++;
       try {
         const o = await this.o.exchange.getOrder(instId, clOrdId);
         if (TERMINAL_STATES.has(o.state) && this.background.has(clOrdId)) {
@@ -539,6 +625,11 @@ export class Executor implements ExecutorApi {
         }
       } catch {
         // keep polling
+      }
+      if (limit && this.background.has(clOrdId) && tries >= limit.maxTries) {
+        this.background.delete(clOrdId);
+        stop();
+        limit.onGiveUp();
       }
     });
     this.background.add(clOrdId);

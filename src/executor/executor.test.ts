@@ -7,7 +7,7 @@ import { entryClOrdId, orderHash } from "../shared/order-hash.js";
 import type { ExecutorState, Hex32, OrderRequest } from "../shared/schemas.js";
 import { SimClock } from "../shared/time.js";
 import { FakeExchange } from "./exchanges/fake-exchange.js";
-import { Executor } from "./executor.js";
+import { EXIT_POLL_MAX_TRIES, Executor, type PendingEntry } from "./executor.js";
 import { MemoryStateStore } from "./store.js";
 
 const T0 = Date.UTC(2026, 9, 17, 9, 0, 0);
@@ -287,5 +287,56 @@ describe("monitor and pause watcher (§14.4, §14.5)", () => {
       atk: { kind: "fake", modules: [], readOnly: true, demo: false, tools: [] },
     })).toThrow(/belongs to/);
     expect(make().state.halted).toBe(true); // same run: reloads
+  });
+});
+
+describe("restart recovery", () => {
+  it("an exit in flight at restart is resolved (filled) or released (never sent)", async () => {
+    const a = await approved();
+    await ex.execute(a.req, a.h);
+    // Simulate a crash right after `exiting` was persisted, before the sell reached the exchange.
+    const st = store.load()!;
+    st.positions[0]!.exiting = { clOrdId: `x${"1".repeat(30)}`, reason: "STOP_HIT", reservedSz: "0.3992", since: clock.now() };
+    store.save(st);
+    const ex2 = make();
+    expect((await ex2.exit(a.h, "OWNER_CLOSE")).refusal).toBe("EXIT_IN_PROGRESS");
+    await ex2.recover();
+    expect(ex2.state.positions[0]!.exiting).toBeNull();
+    expect((await ex2.exit(a.h, "OWNER_CLOSE")).result).toBe("FILLED");
+  });
+
+  it("an entry placed before a restart becomes a protected position", async () => {
+    const pendingStore = new MemoryStateStore<PendingEntry[]>();
+    const mk = () => new Executor({
+      mode: "fake", chainId: chain.chainId, policy: chain.address, chain, exchange, market, clock, store, pendingStore,
+      atk: { kind: "fake", modules: [], readOnly: true, demo: false, tools: [] },
+    });
+    const e1 = mk();
+    const a = await approved();
+    const orig = exchange.getOrder.bind(exchange);
+    exchange.getOrder = async (i, c) => ({ ...(await orig(i, c)), state: "live" });
+    expect((await e1.execute(a.req, a.h)).result).toBe("UNKNOWN");
+    e1.stop(); // "crash"
+    exchange.getOrder = orig;
+    expect(pendingStore.load()).toHaveLength(1);
+    const e2 = mk();
+    await e2.recover();
+    expect(e2.state.positions.map((p) => p.entryOrderHash)).toEqual([a.h]);
+    expect(pendingStore.load()).toEqual([]);
+  });
+
+  it("an exit whose state stays unknown is released after a bounded number of polls", async () => {
+    const a = await approved();
+    await ex.execute(a.req, a.h);
+    const orig = exchange.getOrder.bind(exchange);
+    exchange.getOrder = async (i, c) => ({ ...(await orig(i, c)), state: "live" });
+    expect((await ex.exit(a.h, "STOP_HIT")).result).toBe("UNKNOWN");
+    for (let i = 0; i < EXIT_POLL_MAX_TRIES; i++) {
+      clock.advance(5_000);
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    expect(ex.state.positions[0]?.exiting ?? null).toBeNull();
+    expect(ex.state.events.at(-1)).toMatchObject({ type: "ALERT", data: { code: "EXIT_STATE_UNKNOWN" } });
+    ex.stop();
   });
 });

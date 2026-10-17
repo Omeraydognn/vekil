@@ -5,7 +5,7 @@ import express from "express";
 import { z } from "zod";
 import type { VekilEvent } from "../shared/events.js";
 import { SSE_EVENT_TYPES } from "../shared/events.js";
-import { postGuard, staticWeb, WEB_DIR } from "./server.js";
+import { hostGuard, postGuard, staticWeb, WEB_DIR } from "./server.js";
 import { sseHandler } from "./sse.js";
 
 const EventLine = z.object({ type: z.enum(SSE_EVENT_TYPES), ts: z.number().int(), cycleId: z.string().optional(), test: z.boolean().optional(), data: z.record(z.string(), z.unknown()) });
@@ -31,6 +31,7 @@ export function replayApp(opts: { file: string; token: string; stepMs?: number; 
   }, step);
   const app = express();
   app.disable("x-powered-by");
+  app.use(hostGuard());
   app.use(express.json());
   app.use(postGuard(opts.token));
   app.get("/api/state", (_req, res) => void res.json(current));

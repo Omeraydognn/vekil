@@ -14,7 +14,7 @@ import { AtkExchange } from "./exchanges/atk-exchange.js";
 import { PaperExchange, paperAccountPath } from "./exchanges/paper-exchange.js";
 import { Executor } from "./executor.js";
 import { executorApp, listenExecutor } from "./server.js";
-import { ExecutorStateStore, executorStatePath } from "./store.js";
+import { ExecutorStateStore, PendingEntryStore, executorPendingPath, executorStatePath } from "./store.js";
 
 const EnvSchema = z.object({
   EXECUTION_MODE: ModeSchema,
@@ -80,7 +80,9 @@ async function main(): Promise<void> {
   const ex = new Executor({
     mode, chainId: env.CHAIN_ID, policy: env.VEKIL_POLICY_ADDRESS, chain, exchange, market, clock,
     store: new ExecutorStateStore(executorStatePath(env.DATA_DIR)), atk: atkInfo, instIds: [env.INST_ID],
+    pendingStore: new PendingEntryStore(executorPendingPath(env.DATA_DIR)),
   });
+  await ex.recover();
   const stopLoops = ex.start({ monitorIntervalMs: env.MONITOR_INTERVAL_SEC * 1000, chainWatchIntervalMs: env.CHAIN_WATCH_INTERVAL_SEC * 1000 });
   const srv = await listenExecutor(executorApp(ex, env.EXECUTOR_TOKEN), "127.0.0.1", env.EXECUTOR_PORT);
   console.log(JSON.stringify({ msg: "executor ready", mode, port: env.EXECUTOR_PORT, policy: env.VEKIL_POLICY_ADDRESS, data: join(env.DATA_DIR) }));

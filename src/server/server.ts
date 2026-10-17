@@ -46,6 +46,18 @@ export function staticWeb(app: express.Express, webDir: string, token: string): 
   app.use(express.static(webDir, { index: false }));
 }
 
+/** DNS-rebinding hardening: only loopback Host headers. */
+export function hostGuard() {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const host = (req.header("host") ?? "").replace(/:\d+$/, "");
+    if (host !== "127.0.0.1" && host !== "localhost") {
+      res.status(403).json({ error: "host" });
+      return;
+    }
+    next();
+  };
+}
+
 export function postGuard(token: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (req.method === "POST" && !tokenOk(req.header("x-vekil-token"), token)) {
@@ -68,6 +80,7 @@ export function coreApp(o: CoreServerOpts): express.Express {
   const { core } = o;
   const app = express();
   app.disable("x-powered-by");
+  app.use(hostGuard());
   app.use(express.json({ limit: "64kb" }));
   app.use(postGuard(o.token));
 

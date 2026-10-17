@@ -2,7 +2,7 @@
 // FakeMarket; paper → executor process (PaperExchange) + core read instance; live/demo → armed executor process +
 // core read instance. CHAIN=fake → FakePolicyChain; local → own anvil + deploy from bytecode; fuji/mainnet → deployment.
 import { existsSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { privateKeyToAccount } from "viem/accounts";
 import { makeAgentPort } from "../agent/agent.js";
 import { makeMarketContextFn } from "../agent/context.js";
@@ -82,7 +82,9 @@ export async function buildRuntime(cfg: Config, opts: RuntimeOpts = {}): Promise
     for (const c of closers.reverse()) await c().catch(() => undefined);
   };
   try {
-    if ((cfg.chain === "fake" || cfg.chain === "local") && (opts.wipeEphemeral ?? true) && existsSync(cfg.dataDir)) {
+    // Only our own per-mode dirs under ./data are wiped; a mistaken DATA_DIR override is never deleted.
+    const ownDataDir = resolve(cfg.dataDir).startsWith(resolve("data") + sep);
+    if ((cfg.chain === "fake" || cfg.chain === "local") && (opts.wipeEphemeral ?? true) && ownDataDir && existsSync(cfg.dataDir)) {
       rmSync(cfg.dataDir, { recursive: true, force: true });
     }
 
@@ -138,6 +140,7 @@ export async function buildRuntime(cfg: Config, opts: RuntimeOpts = {}): Promise
         mode: "fake", chainId: chain.chainId, policy: chain.address, chain, exchange, market, clock, store: new MemoryStateStore<ExecutorState>(),
         atk: { kind: "fake", modules: [], readOnly: true, demo: false, tools: [] }, instIds: [cfg.instId],
       });
+      await executor.recover();
       const stopLoops = opts.executorLoops === false
         ? () => undefined
         : executor.start({ monitorIntervalMs: cfg.monitorIntervalSec * 1000, chainWatchIntervalMs: cfg.chainWatchIntervalSec * 1000 });

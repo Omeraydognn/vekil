@@ -10,7 +10,10 @@ import { OrderNotFoundError, OrderRejectedError } from "./types.js";
 
 const BalanceRow = z.looseObject({ details: z.array(z.looseObject({ ccy: z.string(), availBal: z.string() })) });
 const DecStr = /^\d+(\.\d+)?$/;
+// UNVERIFIED (ATK_NOTES §8): OKX v5 documents 51603 "Order does not exist"; ATK's error envelope for it on TR has not
+// been observed. Anything else is treated as "unknown", which fails closed for entries and is bounded for exits.
 const OKX_ORDER_NOT_FOUND = new Set(["51603"]);
+const NOT_FOUND_MSG = /does not exist|not exist|not found/i;
 
 function toOrderState(tool: string, r: z.infer<typeof OkxOrderRow>): OrderState {
   const cTime = Number(r.cTime);
@@ -64,7 +67,9 @@ export class AtkExchange implements Exchange {
     try {
       data = await this.trade.callData(tool, { instId, clOrdId });
     } catch (e) {
-      if (e instanceof AtkToolError && e.code !== null && OKX_ORDER_NOT_FOUND.has(e.code)) throw new OrderNotFoundError(`${instId} ${clOrdId}`);
+      if (e instanceof AtkToolError && ((e.code !== null && OKX_ORDER_NOT_FOUND.has(e.code)) || NOT_FOUND_MSG.test(e.message))) {
+        throw new OrderNotFoundError(`${instId} ${clOrdId}`);
+      }
       throw e;
     }
     const r = rows(tool, data, OkxOrderRow)[0];

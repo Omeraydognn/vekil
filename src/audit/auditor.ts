@@ -3,6 +3,7 @@
 // order history, independent of the executor. Needs only a read key and the public chain.
 import type { OrderHistorySource, PolicyChain } from "../shared/interfaces.js";
 import { decEq, decLte } from "../shared/money.js";
+import { OPEN_STATES } from "../executor/exchanges/types.js";
 import { ENTRY_CLORDID_RE, EXIT_CLORDID_RE, clOrdIdPrefix } from "../shared/order-hash.js";
 import type { AuditReport, Hex32, OrderRequest, OrderState } from "../shared/schemas.js";
 
@@ -76,6 +77,8 @@ async function auditOrder(d: AuditorDeps, o: OrderState, now: number): Promise<I
   }
   // A2: exits.
   if (EXIT_CLORDID_RE.test(id)) {
+    // A market sell that never filled (retried by the monitor) sold nothing; only the filled exit is recorded on-chain.
+    if (decEq(o.accFillSz, "0") && !OPEN_STATES.has(o.state)) return { clOrdId: id, kind: "EXIT", status: "OK", detail: "dolmadı (satış yok)" };
     const entry = await d.chain.entryByExitPrefix(clOrdIdPrefix(id));
     if (!entry) {
       if (now - o.cTime < EXIT_PENDING_MS) return { clOrdId: id, kind: "EXIT", status: "PENDING", detail: "bekliyor: çıkış henüz zincirde kayıtlı değil" };

@@ -51,7 +51,8 @@ async function main(): Promise<void> {
         if (r.cancelled.length) console.log(`iptal: ${r.cancelled.join(", ")}`);
         if (r.pauseTx) console.log(`pause tx: ${r.pauseTx}`);
         for (const e of r.errors) console.log(`! ${e}`);
-        return;
+        if (!r.errors.some((e) => e.startsWith("executor"))) return;
+        console.log("çekirdek emir göndericiye ulaşamadı; doğrudan deneniyor");
       }
       console.log(`çekirdek yanıtı ${res.status}; emir göndericiye geçiliyor`);
     } catch (e) {
@@ -67,6 +68,12 @@ async function main(): Promise<void> {
       await ex.halt();
       const cancelled = await ex.cancelAll("kill");
       console.log(`DURDURULDU (emir gönderici): iptal ${cancelled.length} emir ${cancelled.join(", ")}`);
+      if (flatten) {
+        for (const p of (await ex.health()).positions) {
+          const r = await ex.exit(p.entryOrderHash, "KILL_FLATTEN");
+          console.log(`kapat ${p.instId} ${p.clOrdId}: ${r.result}${r.refusal ? " " + r.refusal : ""}`);
+        }
+      }
       haltStateFile(cfg.dataDir, "pnpm kill (emir gönderici)");
       return;
     } catch (e) {
@@ -74,7 +81,8 @@ async function main(): Promise<void> {
     }
   }
 
-  // 3. Nothing is running.
+  // 3. Nothing is running: write the HALT first, then try to cancel.
+  haltStateFile(cfg.dataDir, "pnpm kill (süreçler kapalı)");
   const mode = readStateModeFromFile(cfg.dataDir);
   if (mode === "live" || mode === "demo") {
     const demo = mode === "demo";
@@ -100,7 +108,6 @@ async function main(): Promise<void> {
   } else {
     console.log(`${mode ?? "bilinmeyen"} mod: borsada iptal edilecek gerçek emir yok`);
   }
-  haltStateFile(cfg.dataDir, "pnpm kill (süreçler kapalı)");
 }
 
 main().catch((e: unknown) => {
