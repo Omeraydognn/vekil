@@ -30,7 +30,7 @@ describe("OpenRouterLlm", () => {
     ]);
   });
 
-  it("returns tool calls as tool_use blocks; a forced tool is offered alone with tool_choice required", async () => {
+  it("returns tool calls as tool_use blocks; a forced tool is offered alone with tool_choice auto", async () => {
     const seen: Record<string, unknown>[] = [];
     const llm = new OpenRouterLlm({
       model: "x/y:free", apiKey: "k", clock: new SimClock(0, { autoAdvance: true }),
@@ -39,25 +39,29 @@ describe("OpenRouterLlm", () => {
     const req: LlmRequest = { system: "S", tools: [other, tool], messages: [{ role: "user", content: "go" }], toolChoice: { type: "tool", name: "submit_decision" }, maxTokens: 100 };
     const r = await llm.create(req, new AbortController().signal);
     expect(r.content).toEqual([{ type: "tool_use", id: "c1", name: "submit_decision", input: { action: "HOLD" } }]);
-    expect(seen[0]).toMatchObject({ model: "x/y:free", tool_choice: "required" });
+    expect(seen[0]).toMatchObject({ model: "x/y:free", tool_choice: "auto" });
     expect((seen[0]!.tools as { function: { name: string } }[]).map((t) => t.function.name)).toEqual(["submit_decision"]);
   });
 
-  it("falls back to tool_choice auto on a 400, retries once on 429, and keeps bad JSON args as a raw string", async () => {
+  it("retries once on 429 and keeps bad JSON args as a raw string", async () => {
     const seen: Record<string, unknown>[] = [];
     const llm = new OpenRouterLlm({
       model: "x/y:free", apiKey: "k", clock: new SimClock(0, { autoAdvance: true }),
       fetchImpl: fakeFetch([
-        { status: 400, body: { error: { message: "tool_choice required unsupported" } } },
         { status: 429, body: { error: { message: "rate limited" } } },
-        { status: 400, body: { error: { message: "again" } } },
         ok({ content: "", tool_calls: [{ function: { name: "submit_decision", arguments: "{bad" } }] }),
       ], seen),
     });
     const req: LlmRequest = { system: "S", tools: [tool], messages: [{ role: "user", content: "go" }], toolChoice: { type: "tool", name: "submit_decision" }, maxTokens: 100 };
     const r = await llm.create(req, new AbortController().signal);
-    expect(seen.map((b) => b.tool_choice)).toEqual(["required", "auto", "required", "auto"]);
+    expect(seen).toHaveLength(2);
     expect(r.content[0]).toMatchObject({ type: "tool_use", name: "submit_decision", input: "{bad" });
+  });
+
+  it("an empty body error shows the HTTP status and size", async () => {
+    const f = (async () => new Response("", { status: 200 })) as typeof fetch;
+    const llm = new OpenRouterLlm({ model: "a/x:free", apiKey: "k", clock: new SimClock(0, { autoAdvance: true }), fetchImpl: f });
+    await expect(llm.create({ system: "S", tools: [], messages: [{ role: "user", content: "x" }], toolChoice: { type: "auto" }, maxTokens: 10 }, new AbortController().signal)).rejects.toThrow(/HTTP 200, 0 bytes/);
   });
 
   it("uses LLM_BASE_URL for an OpenAI-compatible gateway", async () => {

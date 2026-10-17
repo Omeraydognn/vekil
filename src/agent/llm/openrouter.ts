@@ -1,7 +1,8 @@
 // OpenRouter client (OpenAI-compatible chat completions over fetch; no extra dependency). The loop speaks Anthropic
 // message shapes (tool_use / tool_result blocks), so requests and responses are translated here. Retry once after 2 s
-// if the deadline allows. LLM_MODEL may list several models separated by commas (OpenRouter fallback). A forced tool is sent as tool_choice "required" with only that tool offered; if the provider
-// rejects that, it is retried with "auto" (the loop and the parser handle a missing call).
+// if the deadline allows. LLM_MODEL may list several models separated by commas (OpenRouter fallback). A forced tool is
+// sent as tool_choice "auto" with ONLY that tool offered (free providers often return empty bodies for "required");
+// the loop and the parser handle a missing call.
 import type { ContentBlockParam, MessageParam } from "@anthropic-ai/sdk/resources/messages";
 import { z } from "zod";
 import type { Clock, LlmClient, LlmRequest } from "../../shared/interfaces.js";
@@ -159,12 +160,17 @@ export class OpenRouterLlm implements LlmClient {
       body: JSON.stringify(body),
       signal,
     });
-    const json = parseBody(await res.text().catch(() => ""));
+    const raw = await res.text().catch(() => "");
+    const json = parseBody(raw);
     if (!res.ok) {
       const msg = (json as { error?: { message?: string } } | null)?.error?.message ?? `HTTP ${res.status}`;
       throw new OpenRouterError(res.status, `openrouter: ${msg}`);
     }
-    if (json === null) throw new OpenRouterError(502, "openrouter: empty or non-JSON response");
+    if (json === null) {
+      // The body is model output or a provider message: no secrets. Shown to help diagnose the provider.
+      const snippet = raw.replace(/\s+/g, " ").trim().slice(0, 300);
+      throw new OpenRouterError(502, `openrouter: empty or non-JSON response (HTTP ${res.status}, ${raw.length} bytes${snippet ? `: ${snippet}` : ""})`);
+    }
     const err = (json as { error?: { message?: string } } | null)?.error;
     if (err) throw new OpenRouterError(502, `openrouter: ${err.message ?? "error"}`);
     try {
@@ -175,15 +181,7 @@ export class OpenRouterLlm implements LlmClient {
   }
 
   async create(req: LlmRequest, signal: AbortSignal): Promise<LlmResponse> {
-    const attempt = async (): Promise<LlmResponse> => {
-      try {
-        return await this.post(toBody(req, this.opts.model, "required"), signal);
-      } catch (e) {
-        // Some providers reject tool_choice "required": retry the same request with "auto".
-        if (e instanceof OpenRouterError && e.status === 400 && req.toolChoice.type === "tool") return this.post(toBody(req, this.opts.model, "auto"), signal);
-        throw e;
-      }
-    };
+    const attempt = (): Promise<LlmResponse> => this.post(toBody(req, this.opts.model, "auto"), signal);
     try {
       return await attempt();
     } catch (e) {
