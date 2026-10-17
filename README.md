@@ -98,6 +98,30 @@ pnpm verify --prove <seq>  # build the Merkle proof for one decision and check i
 pnpm audit:orders          # every agent order on the exchange ↔ an on-chain approval
 ```
 
+## VEKİL Guard: the rule engine as a service
+
+Other agents can ask before they trade: *would the owner's VekilPolicy approve this order right now?* Guard simulates `requestApproval` with `eth_call` from the agent address. It sends no transaction, holds no keys and changes no state. Because the contract never reverts for policy reasons, the answer carries the contract's own reason codes, against the live counters, risk budget and brake. Service description: [`docs/guard-manifest.json`](docs/guard-manifest.json) (also served at `/.well-known/vekil-guard.json`). Design: [`docs/GUARD_PLAN.md`](docs/GUARD_PLAN.md).
+
+```bash
+pnpm guard                 # http://127.0.0.1:8791, uses CHAIN / RPC / deployment.json like the other scripts
+```
+
+```bash
+curl -s -X POST http://127.0.0.1:8791/v1/check -H 'content-type: application/json' \
+  -d '{"instId":"DOGE-TRY","px":"7.007","sz":"1427.14428"}'
+```
+
+On the Fuji dev contract this answers `REJECT` with `INSTRUMENT_NOT_ALLOWED`, `ORDER_TOO_LARGE` and `STOP_MISSING` ("Bu çift izinli değil", "İşlem tutarı limiti aşıyor", "Zarar-kes yok"), `critical: true`, `wouldPause: true`, and nothing is written on-chain. A valid AVAX-TRY order inside the rules answers `APPROVE` with its notional and worst-case risk.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /v1/policy` | the on-chain rules (with the owner's Turkish text), version, brake state, today's counters |
+| `POST /v1/check` | simulate an order: `APPROVE` / `REJECT`, reasons `{code, tr}`, `critical`, `wouldPause`, notional, worst case |
+| `GET /v1/audit/{clOrdId}` | is this exchange order approved on-chain? With `?instId=&side=&px=&sz=` it also checks the order matches the approval |
+| `POST /v1/policy/propose` | Turkish rules → policy draft (never applied; only the owner signs `setPolicy`) |
+
+**Business model:** a per-check fee or subscription for agents and agent platforms, and a B2B policy-layer API for exchanges. Every CEX opening up to agents (OKX ATK, Binance, Bitget, Coinbase) has the same trust problem. `GUARD_PRICE=0.01` turns on a simulated HTTP 402 "pay per check" flow.
+
 ## LLM providers
 
 `LLM_PROVIDER=anthropic` (default, `LLM_MODEL=claude-sonnet-5-5`), `openrouter` (any OpenAI-compatible tool-calling model; comma-separated fallback list), or `scripted` (tests and offline demo; refused for live). The model only drafts: every decision and every policy is validated in code, and the contract enforces the rules.
@@ -113,4 +137,4 @@ pnpm audit:orders          # every agent order on the exchange ↔ an on-chain a
 
 ## Next steps
 
-TEE attestation for the executor (Nitro / Oyster), browser-wallet signing, an on-chain price collar with an oracle, VekilPolicy as a shared policy service for other agents (OKX.AI listing), a dedicated Avalanche L1 for policy registries.
+TEE attestation for the executor (Nitro / Oyster), browser-wallet signing, an on-chain price collar with an oracle, listing VEKİL Guard on OKX.AI (the service and its manifest exist today), a dedicated Avalanche L1 for policy registries.

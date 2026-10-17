@@ -15,6 +15,7 @@
     "dev": "tsx src/main.ts",
     "verify": "tsx scripts/verify.ts",
     "audit:orders": "tsx scripts/audit-orders.ts",
+    "guard": "tsx scripts/guard.ts",
     "kill": "tsx scripts/kill.ts",
     "live": "tsx scripts/live.ts",
     "resume": "tsx scripts/resume.ts",

@@ -356,6 +356,33 @@ export class ViemPolicyChain implements PolicyChain {
     return this.read<boolean>("verifyEntry", [BigInt(toSafeNumber(index, "index")), lowerHex32(entryHash), proof.map(lowerHex32)]);
   }
 
+  /**
+   * VEKİL Guard: what requestApproval would decide right now, as an eth_call from the agent address. No key, no tx,
+   * no state change. requestApproval never reverts for policy reasons, so a rejection comes back as reason bits.
+   * Setting `account` also keeps viem from batching this call into Multicall3 (msg.sender must be the agent).
+   */
+  async simulateApproval(req: OrderRequest): Promise<{ orderHash: Hex32; reasonsMask: number; agent: Address; blockNumber: number; blockTimestamp: number }> {
+    const parsed = OrderRequestSchema.parse(req);
+    const block = await this.pub.getBlock({ blockTag: "latest" });
+    const agent = lowerAddr(await this.read<string>("agent", [], block.number));
+    const { result } = await this.pub.simulateContract({
+      address: this.addr,
+      abi: vekilPolicyAbi,
+      functionName: "requestApproval",
+      args: [toChainOrder(parsed)],
+      account: agent as Hex,
+      blockNumber: block.number,
+    });
+    const [orderHash, reasons] = result as readonly [Hex, number];
+    return {
+      orderHash: lowerHex32(orderHash),
+      reasonsMask: toSafeNumber(reasons, "reasons"),
+      agent,
+      blockNumber: toSafeNumber(block.number, "blockNumber"),
+      blockTimestamp: toSafeNumber(block.timestamp, "blockTimestamp"),
+    };
+  }
+
   /** The contract's pure hashOrderFor (hash parity checks). */
   async hashOrderFor(chainId: number, policy: string, req: OrderRequest): Promise<Hex32> {
     const parsed = OrderRequestSchema.parse(req);

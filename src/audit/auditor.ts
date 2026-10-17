@@ -13,7 +13,8 @@ export const EXIT_PENDING_MS = 2 * 60_000;
 export interface AuditorDeps {
   source: OrderHistorySource;
   sourceKind: AuditReport["source"];
-  chain: PolicyChain;
+  /** Only reads: the auditor needs a public chain view, nothing else. */
+  chain: Pick<PolicyChain, "address" | "approvedRequest" | "orderHashByPrefix" | "approval" | "entryByExitPrefix">;
   /** The policy's instruments (on-chain view), plus anything else to sweep. */
   instIds: () => Promise<string[]>;
   now: () => number;
@@ -57,7 +58,8 @@ async function approvedRequest(d: AuditorDeps, h: Hex32): Promise<OrderRequest |
   return d.approvedCache?.(h) ?? null;
 }
 
-async function auditOrder(d: AuditorDeps, o: OrderState, now: number): Promise<Item> {
+/** One order against the chain (A1–A3). Also used by VEKİL Guard for a single clOrdId. */
+export async function auditOrder(d: AuditorDeps, o: OrderState, now: number): Promise<Item> {
   const id = o.clOrdId;
   // A1: entries.
   if (ENTRY_CLORDID_RE.test(id)) {

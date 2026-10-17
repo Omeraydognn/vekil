@@ -1,6 +1,6 @@
 # VEKİL Guard: plan (JUDGING_PLAN §4)
 
-Durum: **taslak, onay bekliyor.** Kod yazılmadı.
+Durum: **onaylandı ve uygulandı (17 Eki).** Kod: `src/guard/`, `scripts/guard.ts` (`pnpm guard`), manifest `docs/guard-manifest.json`. Fuji dev kontratında canlı denendi.
 
 ## Amaç
 
