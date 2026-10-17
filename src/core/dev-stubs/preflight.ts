@@ -57,7 +57,7 @@ export function preflightStub(i: PreflightInput): PreflightResult {
     if (D(snap.ask).sub(D(snap.bid)).div(mid).mul(100).gt(D(i.cfg.maxSpreadPct))) reasons.push("SPREAD_TOO_WIDE");
     if (D(px).sub(D(snap.ask)).abs().div(D(snap.ask)).mul(100).gt(D(i.cfg.priceCollarPct))) reasons.push("PRICE_FAR_FROM_MARKET");
     if (D(sz).lt(D(spec.minSz))) reasons.push("ORDER_BELOW_MIN_SIZE");
-    if (D(i.account.quoteAvail).lt(D(px).mul(D(sz)).mul(D(1).add(D(i.cfg.feeRate))))) reasons.push("INSUFFICIENT_BALANCE");
+    if (D(i.account.quoteAvail).lt(D(px).mul(D(sz)).mul(D("1").add(D(i.cfg.feeRate))))) reasons.push("INSUFFICIENT_BALANCE");
   }
   if (pos) reasons.push("POSITION_ALREADY_OPEN");
   if (i.lastLossExitAt !== null && i.now - i.lastLossExitAt < i.cfg.cooldownAfterLossMin * 60_000) reasons.push("COOLDOWN_ACTIVE");

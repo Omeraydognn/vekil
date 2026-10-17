@@ -6,7 +6,7 @@ import type {
   PreflightResult, RunAgentResult, StateStore,
 } from "../shared/interfaces.js";
 import type {
-  AccountSnapshot, Address, AgentDecision, AgentState, AuditReport, InstrumentSpec, LedgerEntry, MarketSnapshot,
+  AccountSnapshot, Address, AgentDecision, Hex32, AgentState, AuditReport, InstrumentSpec, LedgerEntry, MarketSnapshot,
   McpTool, Policy, PolicyProposal, VerifyReport,
 } from "../shared/schemas.js";
 
@@ -41,6 +41,10 @@ export type Auditor = () => Promise<AuditReport>;
 
 /** Track B: core's read-only ATK instance, as far as the startup checks need it (SC3). */
 export interface AtkReadInfo {
+  /** ATK package version, recorded in STARTUP. */
+  atkVersion: string | null;
+  /** Manifest hash of the read instance (SC4), recorded in STARTUP. */
+  manifestHash: Hex32 | null;
   capabilities(): Promise<{ readOnly: boolean; modules: string[] } | null>;
   listTools(): Promise<McpTool[]>;
 }
@@ -68,6 +72,8 @@ export interface CoreDeps {
   ask: ((question: string) => Promise<string>) | null;
   /** Data dir files (policy-cache.json). */
   dataDir: string;
+  /** The foreign pair used by R1 and the injection text (ATK_NOTES §6). */
+  r1Pair: string;
   /** Live arming as seen by core (SC2). */
   liveArmed: boolean;
 }

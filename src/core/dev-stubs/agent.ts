@@ -22,7 +22,7 @@ export function holdDecision(instId = "AVAX-TRY"): AgentDecision {
 export function suggestedLevels(snapshot: MarketSnapshot, policy: Policy, tickSz = "0.1"): { entryPx: string; stopPx: string; tpPx: string } {
   const entryPx = ceilToTick(toDecString(D(snapshot.ask).mul("1.001")), tickSz);
   const distPct = D(policy.minStopDistancePct).add(D(policy.maxStopDistancePct)).div(2);
-  const stopPx = floorToTick(toDecString(D(entryPx).mul(D(1).sub(distPct.div(100)))), tickSz);
+  const stopPx = floorToTick(toDecString(D(entryPx).mul(D("1").sub(distPct.div(100)))), tickSz);
   const tpPx = ceilToTick(toDecString(D(entryPx).add(D(entryPx).sub(D(stopPx)).mul(2))), tickSz);
   return { entryPx, stopPx, tpPx };
 }
@@ -61,7 +61,7 @@ export const buildRogueStub: RogueBuilder = async (id, { policy, snapshot }) => 
   const lv = suggestedLevels(snap, policy);
   if (id === "R2") {
     const wide = D(policy.maxStopDistancePct).add(2);
-    const stopPx = floorToTick(toDecString(D(lv.entryPx).mul(D(1).sub(wide.div(100)))), "0.1");
+    const stopPx = floorToTick(toDecString(D(lv.entryPx).mul(D("1").sub(wide.div(100)))), "0.1");
     return { action: "BUY", instId: "AVAX-TRY", ...base, quoteAmount: policy.maxOrderQuote, limitPx: lv.entryPx, stopPx, tpPx: lv.tpPx, timeStopMin: 240 };
   }
   return { action: "BUY", instId: "AVAX-TRY", ...base, quoteAmount: toDecString(D(policy.maxOrderQuote).mul("1.5")), limitPx: lv.entryPx, stopPx: lv.stopPx, tpPx: lv.tpPx, timeStopMin: 240 };

@@ -30,7 +30,7 @@ export class FakeMarket implements MarketData {
     if (this.failSnapshot) throw new Error("market down");
     const spec = await this.getInstrument(instId);
     const bid = this.bids[instId] ?? "1";
-    const ask = ceilToTick(toDecString(D(bid).mul(D(1).add(D(this.spreadPct).div(100)))), spec.tickSz);
+    const ask = ceilToTick(toDecString(D(bid).mul(D("1").add(D(this.spreadPct).div(100)))), spec.tickSz);
     const now = this.clock.now();
     return { instId, bid, ask, last: bid, bidSz: "10", askSz: "10", exchTs: now, fetchedAt: now };
   }
