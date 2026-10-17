@@ -53,7 +53,12 @@ export function fromMessage(msg: Anthropic.Message): LlmResponse {
 export class AnthropicLlm implements LlmClient {
   private readonly client: Pick<Anthropic, "messages">;
   constructor(private readonly opts: AnthropicLlmOptions) {
-    this.client = opts.client ?? new Anthropic({ apiKey: opts.apiKey, maxRetries: 0, ...(opts.baseURL ? { baseURL: opts.baseURL } : {}) });
+    this.client = opts.client ?? new Anthropic({
+        apiKey: opts.apiKey,
+        maxRetries: 0,
+        // Gateways (e.g. AgentRouter) take the token as x-api-key or as a Bearer token: send both.
+        ...(opts.baseURL ? { baseURL: opts.baseURL, ...(opts.apiKey ? { authToken: opts.apiKey } : {}) } : {}),
+      });
   }
 
   async create(req: LlmRequest, signal: AbortSignal): Promise<LlmResponse> {
