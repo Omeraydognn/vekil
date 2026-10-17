@@ -1,5 +1,25 @@
 {
-  "llm": [],
-  "core": [],
-  "executorTrade": []
+  "llm": ["market_get_ticker", "market_get_orderbook", "market_get_candles", "market_get_trades"],
+  "core": [
+    "system_get_capabilities",
+    "market_get_instruments",
+    "market_get_ticker",
+    "market_get_orderbook",
+    "market_get_candles",
+    "market_get_trades",
+    "account_get_balance",
+    "account_get_trade_fee",
+    "account_get_config",
+    "spot_get_order",
+    "spot_get_orders"
+  ],
+  "executorTrade": [
+    "system_get_capabilities",
+    "market_get_ticker",
+    "market_get_instruments",
+    "spot_place_order",
+    "spot_cancel_order",
+    "spot_get_order",
+    "spot_get_orders"
+  ]
 }
