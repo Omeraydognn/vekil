@@ -31,6 +31,7 @@ async function main(): Promise<void> {
     "account_get_trade_fee",
     "account_get_config",
     "spot_get_orders",
+    "spot_get_order",
   ];
   const atk = await AtkClient.start({ profile, modules, readOnly: true, allow }, { spawner: stdioSpawner, mode: "paper" });
   try {
