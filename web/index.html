@@ -4,44 +4,64 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!--VEKIL_TOKEN-->
-  <title>VEKİL</title>
+  <meta name="theme-color" content="#122315">
+  <title>VEKİL — Senin kuralların. Senin vekilin.</title>
+  <link rel="preload" href="fonts/barlow-condensed-extrabold.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <a class="skip-link" href="#dashboard">Kontrol paneline geç</a>
   <header class="top">
-    <div class="brand">VEKİL</div>
-    <span id="status" class="pill">…</span>
-    <span id="mode" class="badge"></span>
-    <span id="chainName" class="badge"></span>
-    <span id="brake" class="badge danger hidden">Kontrat freni AKTİF</span>
-    <a id="contract" class="link" target="_blank" rel="noopener"></a>
-    <span id="erc8004" class="badge hidden"></span>
-    <div class="spacer"></div>
+    <a class="brand" href="#" aria-label="Vekil ana sayfa">vekil<span class="brand-star" aria-hidden="true">✳</span></a>
+    <nav aria-label="Ana gezinme">
+      <a href="#dashboard">Kontrol paneli</a><a href="#cardWrite">Kurallarım</a><a href="#cardVerify">Doğrulama</a>
+    </nav>
     <div class="kill">
-      <button id="btnKill" class="big danger">DURDUR</button>
+      <button id="btnKill" class="big danger"><span aria-hidden="true">■</span> DURDUR</button>
       <button id="btnKillFlatten" class="danger outline">Durdur ve kapat</button>
-      <div id="killTimings" class="timings"></div>
+      <div id="killTimings" class="timings" role="status"></div>
     </div>
   </header>
 
-  <div id="alerts" class="alerts"></div>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-inner">
+      <div class="eyebrow"><span class="eyebrow-line"></span> OTONOM AJAN. SINIRLARI SEN BELİRLE.</div>
+      <h1 id="hero-title">SENİN KURALLARIN.<br><span>SENİN VEKİLİN.</span></h1>
+      <div class="hero-bottom">
+        <p>Sen rotayı çiz. Vekil takip etsin.<br>AVAX/TRY işlemlerini, zincirdeki kurallarınla yönet.</p>
+        <a class="button primary" href="#cardWrite">KURALLARINI YAZ <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="patch" aria-hidden="true"><span>SENİN ROTAN</span><svg viewBox="0 0 100 65"><path d="M8 58 36 10 55 38 68 20 94 58Z" fill="#f3ede4"/><path d="m36 10-9 30 12-7 16 5Z" fill="#73d3eb"/><path d="M8 58h86M20 63h65" stroke="#f3ede4" stroke-width="2"/><circle cx="77" cy="10" r="7" fill="#ffed52"/></svg><span>SENİN KONTROLÜN</span></div>
+    </div>
+    <svg class="landscape" viewBox="0 0 1440 155" preserveAspectRatio="none" aria-hidden="true">
+      <path d="m0 90 95-33 69 20 98-68 82 78 80-33 116 65 100-25 107 30 115-63 95 31 120-83 94 65 76-20 93 40v61H0Z" fill="#566053"/>
+      <path d="m164 77 98-68 82 78-72-39-21 17-16-14Z" fill="#f3ede4"/><path d="m957 92 120-83 94 65-85-39-32 31-20-8Z" fill="#f3ede4"/>
+      <path d="M0 118q170-48 350 8t370-1 390-13 330-6v49H0Z" fill="#0a071b"/>
+      <path d="M715 112q-65 14 0 25t-30 18h180q63-16-46-22t-43-21Z" fill="#73d3eb"/>
+      <g fill="#122315" stroke="#f3ede4" stroke-width="1.2"><path d="m50 129 22-34H61l18-29H68l19-32 20 32H96l19 29h-12l22 34Zm71 16 25-39h-13l20-32h-11l21-36 22 36h-12l21 32h-13l25 39Zm1139-2 22-34h-11l18-29h-11l19-32 20 32h-11l19 29h-12l22 34Zm75-10 27-42h-13l21-35h-12l23-39 24 39h-13l22 35h-14l28 42Z"/></g>
+      <g stroke="#f3ede4" stroke-width="2"><path d="M87 129v26m76-10v10m1134-12v12m74-22v22"/></g>
+    </svg>
+  </section>
+
+  <div class="workspace-heading" id="dashboard"><div><span class="eyebrow">VEKİL / KONTROL PANELİ</span><h2>Rota sende.</h2></div><p>Kararları izle. Kurallarını yönet.<br>Her adımın kaydını doğrula.</p></div>
+  <section class="system-bar" aria-label="Sistem durumu">
+    <span id="status" class="pill" role="status">Bağlanıyor…</span>
+    <span id="mode" class="badge"></span><span id="chainName" class="badge"></span>
+    <span id="brake" class="badge danger hidden">Kontrat freni AKTİF</span>
+    <a id="contract" class="link" target="_blank" rel="noopener"></a>
+    <span id="erc8004" class="badge hidden"></span>
+  </section>
+  <div id="alerts" class="alerts" role="alert"></div>
 
   <main class="grid">
-    <section class="card" id="cardPolicy">
-      <h2>Kurallar (zincirde)</h2>
-      <blockquote id="sourceText" class="source">—</blockquote>
-      <table class="kv" id="policyFields"></table>
-      <div class="meta"><span id="policyVersion"></span> <span id="policyOnChain" class="ok"></span></div>
-    </section>
-
     <section class="card" id="cardWrite">
-      <h2>Kurallarını yaz</h2>
-      <textarea id="ruleText" maxlength="1000" rows="4" placeholder="Örn: Sadece AVAX işlem yap. İşlem başına en fazla 200 TL. Günlük risk en fazla 100 TL. Her işlemde zarar-kes olsun, en fazla %3."></textarea>
+      <div class="card-heading"><span class="section-number">01 / SENİN SÖZÜN</span><span aria-hidden="true">↗</span></div><h2>Önce kurallarını yaz.</h2><p class="card-intro">Nasıl işlem yapmak istediğini anlat. Vekil, kurallarını onayın için hazırlasın.</p><label class="field-label" for="ruleText">İşlem kuralların</label>
+      <textarea aria-describedby="ruleHint" id="ruleText" maxlength="1000" rows="4" placeholder="Örn: Sadece AVAX işlem yap. İşlem başına en fazla 200 TL. Günlük risk en fazla 100 TL. Her işlemde zarar-kes olsun, en fazla %3."></textarea><p class="field-hint" id="ruleHint">En fazla 1.000 karakter. Zincire yazılmadan önce sen onaylarsın.</p>
       <div class="row"><button id="btnPropose">Yapay zekâ ile dönüştür</button><span id="proposeMsg" class="muted"></span></div>
       <div id="proposal" class="hidden">
         <p id="summaryTr" class="summary"></p>
-        <table class="mapping"><thead><tr><th>Senin cümlen</th><th>Kontrat alanı</th><th>Değer</th></tr></thead><tbody id="mappingBody"></tbody></table>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Kural eşleştirmeleri"><table class="mapping"><thead><tr><th>Senin cümlen</th><th>Kontrat alanı</th><th>Değer</th></tr></thead><tbody id="mappingBody"></tbody></table></div>
         <div id="assumptionsBox"><h3>Varsayımlar</h3><ul id="assumptions" class="assume"></ul></div>
         <div id="questionsBox"><h3>Sorular</h3><ul id="questions" class="questions"></ul></div>
         <ul id="errors" class="errors"></ul>
@@ -54,8 +74,15 @@
       </div>
     </section>
 
+    <section class="card" id="cardPolicy">
+      <div class="card-heading"><span class="section-number">02 / SINIRLAR</span><span class="mini-label">ZİNCİRDE</span></div><h2>Rotanın sınırları.</h2>
+      <blockquote id="sourceText" class="source">—</blockquote>
+      <table class="kv" id="policyFields"></table>
+      <div class="meta"><span id="policyVersion"></span> <span id="policyOnChain" class="ok"></span></div>
+    </section>
+
     <section class="card" id="cardAgent">
-      <h2>Ajan</h2>
+      <div class="card-heading"><span class="section-number">03 / VEKİLİN</span><span class="mini-label">KARAR MERKEZİ</span></div><h2>Her kararın bir gerekçesi var.</h2>
       <div class="row badges"><span id="action" class="badge strong"></span><span id="regime" class="badge"></span><span id="playbook" class="badge"></span><span id="confidence" class="badge"></span><span id="outcome" class="badge"></span></div>
       <h3>Kanıtlar</h3><ul id="evidence"></ul>
       <div class="two">
@@ -70,15 +97,15 @@
         <span>Sonraki kontrol: <b id="countdown">—</b></span>
         <span id="model" class="muted"></span>
       </div>
-      <div class="row">
-        <input id="ownerNote" maxlength="300" placeholder="Sahip notu (bir döngü için)">
+      <label class="field-label" for="ownerNote">Vekiline bir not bırak</label><div class="row">
+        <input type="text" autocomplete="off" id="ownerNote" maxlength="300" placeholder="Sahip notu (bir döngü için)">
         <button id="btnNote">Sahip notu gönder</button>
       </div>
       <div id="pendingNote" class="muted"></div>
     </section>
 
     <section class="card" id="cardPosition">
-      <h2>Pozisyon / Bugün</h2>
+      <div class="card-heading"><span class="section-number">04 / BUGÜN</span><span class="mini-label">AVAX / TRY</span></div><h2>Durumun özeti.</h2>
       <div id="positions"><p class="muted">Açık pozisyon yok.</p></div>
       <table class="kv">
         <tr><th>Gerçekleşen K/Z</th><td id="realized"></td></tr>
@@ -91,7 +118,7 @@
     </section>
 
     <section class="card" id="cardRedteam">
-      <h2>Kandırma testi</h2>
+      <span class="section-number">05 / DAYANIKLILIK</span><h2>Sınırları sına.</h2><p class="card-intro">Ajan kuralların dışına çıkmaya çalışırsa ne olur?</p>
       <div class="row">
         <button id="btnInjection" class="danger outline">Zararlı haber enjekte et</button>
         <button id="btnRogue" class="danger outline">Ele geçirilmiş yapay zekâ</button>
@@ -100,7 +127,7 @@
     </section>
 
     <section class="card" id="cardVerify">
-      <h2>Doğrulama</h2>
+      <span class="section-number">06 / DOĞRULAMA</span><h2>Güven. Ama doğrula.</h2><p class="card-intro">Kayıtların bütünlüğünü zincirdeki kanıtlarla kontrol et.</p>
       <div class="row">
         <button id="btnVerify">Doğrula</button>
         <button id="btnTamper" class="outline">Kurcalama testi</button>
@@ -112,21 +139,22 @@
     </section>
 
     <section class="card" id="cardAudit">
-      <h2>Denetçi</h2>
+      <span class="section-number">07 / DENETİM</span><h2>Emirlerin izini sür.</h2>
       <div class="row"><button id="btnAudit">Denetle</button><span id="auditSummary" class="muted"></span></div>
-      <table class="audit"><thead><tr><th>clOrdId</th><th>Tür</th><th>Durum</th><th>Ayrıntı</th></tr></thead><tbody id="auditBody"></tbody></table>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Emir denetimi"><table class="audit"><thead><tr><th>clOrdId</th><th>Tür</th><th>Durum</th><th>Ayrıntı</th></tr></thead><tbody id="auditBody"></tbody></table></div>
     </section>
 
     <section class="card wide" id="cardFeed">
-      <h2>Akış</h2>
+      <div class="card-heading"><span class="section-number">08 / İŞLEM GÜNLÜĞÜ</span><span class="mini-label">ADIM ADIM, KAYIT ALTINDA</span></div><h2>Vekilin neler yapıyor?</h2>
       <ol id="feed" class="feed"></ol>
     </section>
 
     <section class="card wide" id="cardStartup">
-      <h2>Başlangıç kontrolleri</h2>
+      <span class="section-number">09 / SİSTEM</span><h2>Yola çıkmadan önce.</h2>
       <ul id="startup" class="checks"></ul>
     </section>
   </main>
+  <footer><a class="brand" href="#">vekil<span class="brand-star" aria-hidden="true">✳</span></a><p>Akıl vekilinde. Kontrol sende.</p><a href="#dashboard">Panele dön ↑</a></footer>
   <script src="app.js"></script>
 </body>
 </html>
