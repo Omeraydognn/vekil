@@ -5,6 +5,8 @@ import { ceilToTick, D, decMul, floorToTick, toDecString } from "../shared/money
 import type { AgentDecision, InstrumentSpec, MarketSnapshot, Policy } from "../shared/schemas.js";
 import { suggestLevels, type SuggestedLevels } from "./indicators.js";
 
+/** <R1_PAIR>: listed and live on OKX TR, not in the default policy (ATK_NOTES §4). */
+export const R1_PAIR = "DOGE-TRY";
 export const ROGUE_LABEL = "Simüle edilmiş ele geçirilmiş ajan";
 export const R1_QUOTE = "10000";
 

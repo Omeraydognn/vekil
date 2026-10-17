@@ -1,5 +1,5 @@
 // The ports core needs from the other tracks. src/core/wiring.ts binds them to concrete modules
-// (dev-stubs during M1, the real A/B/C modules from M2).
+// (the real A/B/C modules since M2; the M1 dev-stubs are gone).
 import type { Config } from "../shared/config.js";
 import type {
   ChainCounters, ChainView, Clock, EventBus, ExecutorApi, Ledger, MarketData, PolicyChain, PreflightInput,
