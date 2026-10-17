@@ -12,7 +12,7 @@
 <body>
   <header class="top">
     <a class="brand" href="#">vekil<span aria-hidden="true">✳</span></a>
-    <nav aria-label="Bölümler"><a href="#kontrat">Kontrat</a><a href="#sor">Kontrata sor</a><a href="#kanit">Kanıtlar</a><a href="#nasil">Nasıl çalışır</a></nav>
+    <nav aria-label="Bölümler"><a href="#kontrat">Kontrat</a><a href="#sor">Kontrata sor</a><a href="#kanit">Kanıtlar</a><a href="#canli">Gerçek işlem</a><a href="#nasil">Nasıl çalışır</a></nav>
   </header>
 
   <section class="hero">
@@ -20,7 +20,7 @@
       <p class="eyebrow">OKX TR × AVALANCHE · OTONOM AJAN</p>
       <h1>Kuralı sen yazarsın.<br><span>Kontrat uygular.</span></h1>
       <p class="lead">VEKİL, OKX TR hesabında AVAX-TRY alıp satan bir yapay zekâ ajanı. Sahibinin Türkçe yazdığı kurallar Avalanche'taki <b>VekilPolicy</b> kontratına yazılır. Ajanın her alım isteği önce bu kontrattan geçer. Kural dışı istek reddedilir ve kalıcı olarak kaydedilir; kötü niyetli bir istek gelirse kontrat freni kendisi çeker.</p>
-      <p class="note">Bu sayfa <b>anahtar tutmaz</b>: kontrata doğrudan, herkese açık Avalanche ağından bakar. Hiçbir işlem göndermez, kimsenin parasına ya da ajanına dokunamaz.</p>
+      <p class="note">Bu sayfa <b>anahtar tutmaz ve işlem yapmaz</b>: kontrata doğrudan, herkese açık Avalanche ağından bakar. Gerçek işlemleri sahibinin bilgisayarındaki VEKİL yapar; neden böyle olduğunu ve bugünkü gerçek OKX TR işleminin kanıtını <a href="#canli">aşağıda</a> görebilirsin.</p>
       <div class="cta"><a class="button primary" href="#sor">Kontratı kandırmayı dene ↓</a><a class="button" id="contractLink" target="_blank" rel="noopener">Kontrat Snowtrace'te ↗</a></div>
     </div>
   </section>
@@ -67,8 +67,28 @@
       <div id="auditResult" class="result"></div>
     </section>
 
+    <section id="canli" class="card dark">
+      <div class="head"><span class="num">04</span><h2>Gerçek işlem nerede yapılıyor?</h2></div>
+      <p class="intro">Bu sayfada işlem yapılmaz; bilerek. Gerçek emirleri, sahibinin kendi bilgisayarında çalışan VEKİL verir. Bu sayfa ise o işlemlerin kurallara uyduğunu herkesin <b>kendi gözüyle</b> kontrol edebildiği yerdir.</p>
+      <ul class="flow">
+        <li><b>Neden burada işlem yok?</b> İşlem yapabilmek için OKX işlem anahtarı ve cüzdan anahtarı gerekir. VEKİL'in amacı “yapay zekâya anahtarı ver ve umut et” modelini bitirmek; bu yüzden parayı yönetebilen hiçbir anahtar internete açık bir sunucuda durmaz. Başkasının hesabını bizim sunucumuzdan yönetmek OKX TR API sözleşmesine (9.3) de aykırıdır.</li>
+        <li><b>Burada ne var?</b> Anahtar gerektirmeyen her şey: zincirdeki kurallar, kontrata soru sorma (Guard), kayıtların zincirde doğrulanması ve emir denetimi.</li>
+        <li><b>Ürünün gerçek kullanımında:</b> kullanıcı cüzdanıyla girer, OKX'e OAuth ile bağlanır (Agent Trade Kit destekliyor), kendi kontratını cüzdanından kurar; emir gönderici güvenli donanımda (TEE) çalışır. Anahtar hiçbir zaman bizde olmaz.</li>
+      </ul>
+      <h3>Bugünkü gerçek OKX TR işlemi (kanıt)</h3>
+      <table class="kv">
+        <tr><th>Canlı kontrat (Fuji)</th><td><a href="https://testnet.snowtrace.io/address/0xaefc457c185573503522cf2d4e7649d1b9245f04" target="_blank" rel="noopener">0xaefc457c…5f04</a></td></tr>
+        <tr><th>Zincirde onay (OrderApproved)</th><td><a href="https://testnet.snowtrace.io/tx/0x654458a3375d7c5e94c73950afd7456a939c69b0247d9ae309e2a00d22668ed9" target="_blank" rel="noopener">0x654458a3…</a></td></tr>
+        <tr><th>OKX TR emir kimliği (clOrdId)</th><td><code>v2fa4881396d46d374bd41c52f82d8d</code></td></tr>
+        <tr><th>Çıkış zincirde kayıtlı</th><td><a href="https://testnet.snowtrace.io/tx/0x0c4125d3f42175b1604178ff92e41bc510eba35612ff1b0a83d0d46510f89a28" target="_blank" rel="noopener">0x0c4125d3…</a></td></tr>
+        <tr><th>Denetim (OKX emir geçmişi ↔ zincir)</th><td>Tüm ajan emirleri onaylı ✓</td></tr>
+        <tr><th>ERC-8004 ajan kimliği</th><td>#283</td></tr>
+      </table>
+      <p class="muted small">Emir kimliğini yukarıdaki “Emir denetimi” kutusuna yapıştırarak kontrol edebilirsin (canlı kontrat için sayfa ayarı: VEKIL_POLICY_ADDRESS).</p>
+    </section>
+
     <section id="nasil" class="card">
-      <div class="head"><span class="num">04</span><h2>Nasıl çalışır</h2></div>
+      <div class="head"><span class="num">05</span><h2>Nasıl çalışır</h2></div>
       <ol class="flow">
         <li><b>Sahip kuralını Türkçe yazar.</b> Yapay zekâ bunu kontrat alanlarına çevirir, sahip onaylar, kural Avalanche'a yazılır (Türkçe metin olayın içinde).</li>
         <li><b>Ajan piyasayı okur.</b> OKX Agent Trade Kit'in yalnızca okuma araçlarıyla; rejimi, planı ve kanıtları gerekçesiyle birlikte yazar.</li>
