@@ -81,6 +81,13 @@ async function main(): Promise<void> {
           console.log(`${name}: ${e instanceof AtkToolError ? e.message : String(e)}`);
         }
       }
+      // ATK_NOTES §8: how does ATK report an order that does not exist? (AtkExchange maps it to OrderNotFound.)
+      try {
+        const raw = await atk.callTool("spot_get_order", { instId: "AVAX-TRY", clOrdId: `v${"f".repeat(30)}` });
+        console.log("spot_get_order (unknown clOrdId), raw:", raw.slice(0, 800));
+      } catch (e) {
+        console.log(`spot_get_order (unknown clOrdId): ${e instanceof Error ? e.message : String(e)}`);
+      }
     } else {
       console.log("hasAuth=false: account/spot probes skipped (create the profile in ~/.okx/config.toml, then re-run).");
     }

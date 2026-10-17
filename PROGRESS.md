@@ -81,7 +81,7 @@ The owner exits (formerly S6) are now Must M17.
 - [x] 2 clOrdId / ioc / tdMode / tgtCcy — ATK_NOTES §3 (clOrdId ≤ 32, ioc ok, tdMode required → cash, market sell sz in base)
 - [x] 3 capabilities fields; --read-only HIDES write tools; balances/permissions in `account` — ATK_NOTES §1
 - [x] 4 AVAX-TRY / DOGE-TRY / BTC-TRY specs — ATK_NOTES §4 (BTC-TRY lotSz 9 dp, context only)
-- [ ] 5 fee rate
+- [x] 5 fee rate — AVAX-TRY taker 0.22 %, maker 0.10 % (`account_get_trade_fee`); FEE_RATE=0.0022
 - [ ] 6 demo on TR
 - [ ] 7 news on TR
 - [ ] 8 Fuji faucet
@@ -95,6 +95,7 @@ The owner exits (formerly S6) are now Must M17.
 
 ## Known bugs / follow-ups
 - Runbook: if an exit's state stays unknown (ALERT "EXIT_STATE_UNKNOWN"), that position can't be closed from VEKİL until OKX answers (no double sell by design). Check the order on OKX TR directly.
+- Policy `feeBps` default is 20; the verified taker fee is 22 bps. Set `--feeBps 22` (or in the Turkish rules) so the on-chain worst case is not understated.
 - Before demo/live: verify ATK's "order not found" envelope for `spot_get_order` (ATK_NOTES §8, UNVERIFIED).
 - SPEC question (for the human): `recordExit` is once per entry, but a partial exit leaves a remainder that a second x-order sells; V5 / the auditor would flag that second exit. Market sells normally fill fully; unfilled retries are already ignored by the auditor.
 - Deferred to M3 (not built yet): SC4, SC6, SC9, SC10, SC12, SC14; `register-agent` + `docs/agent-card.json` (ERC-8004 ABI not verified); `pnpm evidence` (S7); `executor.Dockerfile` (S3); "Ajana sor" (S2).
