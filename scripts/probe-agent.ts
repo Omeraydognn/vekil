@@ -7,7 +7,7 @@ import { readAllowlist } from "../src/atk/manifest.js";
 import { makeAgentPort } from "../src/agent/agent.js";
 import { makeMarketContextFn } from "../src/agent/context.js";
 import { makeIndicatorsFn } from "../src/agent/indicators.js";
-import { AnthropicLlm } from "../src/agent/llm/anthropic.js";
+import { makeLlm } from "../src/agent/llm/factory.js";
 import { ScriptedLlm } from "../src/agent/llm/scripted.js";
 import { AtkMarket } from "../src/market/atk-market.js";
 import { FakeMarket } from "../src/market/fake-market.js";
@@ -53,7 +53,7 @@ async function main(): Promise<void> {
     // The HOLD cycle of the smoke script (turns 2–3).
     llm = ScriptedLlm.fromFile({ turns: script.turns.slice(1, 3) }, { clock, indicators, defaultInstId: cfg.instId });
   } else {
-    llm = new AnthropicLlm({ model: cfg.llm.model, apiKey: cfg.llm.apiKey ?? undefined, clock });
+    llm = makeLlm(cfg, clock);
   }
   const view: ChainView = {
     paused: false, policyVersion: 0, policy, policyHash: ZERO_HASH, sourceTextHash: keccakUtf8(""), agent: `0x${"0".repeat(40)}`,

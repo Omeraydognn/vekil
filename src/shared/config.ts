@@ -19,7 +19,7 @@ const secret = z.string().regex(PRIVATE_KEY_RE, "must be 0x + 64 hex").optional(
 
 const EnvSchema = z.object({
   EXECUTION_MODE: ModeSchema.default("paper"),
-  LLM_PROVIDER: z.enum(["anthropic", "scripted"]).default("anthropic"),
+  LLM_PROVIDER: z.enum(["anthropic", "openrouter", "scripted"]).default("anthropic"),
   CHAIN: ChainNameSchema.default("fuji"),
   DATA_DIR: optStr(),
   INST_ID: InstId.default("AVAX-TRY"),
@@ -35,6 +35,7 @@ const EnvSchema = z.object({
   MAX_SNAPSHOT_AGE_SEC: int(15, 1, 3600),
   COOLDOWN_AFTER_LOSS_MIN: int(60, 0, 1440),
   ANTHROPIC_API_KEY: optStr(),
+  OPENROUTER_API_KEY: optStr(),
   LLM_MODEL: str("claude-sonnet-5-5"),
   LLM_MAX_TOOL_CALLS: int(8, 2, 50),
   LLM_CYCLE_TIMEOUT_SEC: int(60, 5, 600),
@@ -57,7 +58,7 @@ const EnvSchema = z.object({
 
 export interface Config {
   mode: z.infer<typeof ModeSchema>;
-  llmProvider: "anthropic" | "scripted";
+  llmProvider: "anthropic" | "openrouter" | "scripted";
   chain: z.infer<typeof ChainNameSchema>;
   chainId: number;
   rpcUrl: string | null;
@@ -121,8 +122,8 @@ export function loadConfig(opts: LoadConfigOpts = {}): Config {
   const errors: string[] = [];
 
   if ((e.EXECUTION_MODE === "demo" || e.EXECUTION_MODE === "live") &&
-      !(e.LLM_PROVIDER === "anthropic" && (e.CHAIN === "fuji" || e.CHAIN === "mainnet"))) {
-    errors.push("demo/live require LLM_PROVIDER=anthropic and CHAIN=fuji or mainnet");
+      !(e.LLM_PROVIDER !== "scripted" && (e.CHAIN === "fuji" || e.CHAIN === "mainnet"))) {
+    errors.push("demo/live require a real LLM (LLM_PROVIDER=anthropic or openrouter) and CHAIN=fuji or mainnet");
   }
   if (!LOOPBACK.has(e.HOST)) errors.push("HOST must be a loopback address (127.0.0.1)");
   if (e.PORT === e.EXECUTOR_PORT) errors.push("PORT and EXECUTOR_PORT must differ");
@@ -130,6 +131,8 @@ export function loadConfig(opts: LoadConfigOpts = {}): Config {
     errors.push(`AGENT_PRIVATE_KEY is required for CHAIN=${e.CHAIN}`);
   }
   if (e.LLM_PROVIDER === "anthropic" && !e.ANTHROPIC_API_KEY) errors.push("ANTHROPIC_API_KEY is required for LLM_PROVIDER=anthropic");
+  if (e.LLM_PROVIDER === "openrouter" && !e.OPENROUTER_API_KEY) errors.push("OPENROUTER_API_KEY is required for LLM_PROVIDER=openrouter");
+  if (e.LLM_PROVIDER === "openrouter" && !e.LLM_MODEL.includes("/")) errors.push("LLM_PROVIDER=openrouter needs an OpenRouter model id in LLM_MODEL (e.g. vendor/model:free)");
   const readModules = e.ATK_READ_MODULES.split(",").map((m) => m.trim()).filter(Boolean);
   if (readModules.length === 0) errors.push("ATK_READ_MODULES must list at least one module");
   if (errors.length) throw new ConfigError(errors.join("; "));
@@ -154,7 +157,7 @@ export function loadConfig(opts: LoadConfigOpts = {}): Config {
       cooldownAfterLossMin: e.COOLDOWN_AFTER_LOSS_MIN,
     },
     llm: {
-      apiKey: e.ANTHROPIC_API_KEY ?? null,
+      apiKey: (e.LLM_PROVIDER === "openrouter" ? e.OPENROUTER_API_KEY : e.ANTHROPIC_API_KEY) ?? null,
       model: e.LLM_MODEL,
       maxToolCalls: e.LLM_MAX_TOOL_CALLS,
       cycleTimeoutSec: e.LLM_CYCLE_TIMEOUT_SEC,

@@ -54,6 +54,7 @@ The owner exits (formerly S6) are now Must M17.
 | `pnpm audit:orders` report (all OK) | | |
 
 ## Decisions log
+- 17 Oct (human request) — LLM_PROVIDER gains `openrouter` (OpenAI-compatible chat API over fetch, no new dependency) next to `anthropic`. This changes the frozen `src/shared/config.ts` with the human's approval: `OPENROUTER_API_KEY`, `LLM_MODEL` must be an OpenRouter id (`vendor/model`), demo/live accept anthropic or openrouter (never scripted). Risk noted: free models have rate limits and weaker tool calling.
 - 17 Oct 11:10 — One session continued all four WIP tracks on `claude/intelligent-lamport-lcmrjk` (PLAN "1 session" layout) and did M2 steps 1–3; `src/core/dev-stubs/` deleted. `src/shared` unchanged.
 - 17 Oct 11:10 — `<R1_PAIR>` = DOGE-TRY (`R1_PAIR` in `src/agent/redteam.ts`). R1 carries a limit from DOGE-TRY's ask so the contract sees the real notional (no ZERO_VALUE).
 - 17 Oct 11:10 — Owner chain scripts (`chain:fuji`, `policy:set`, `owner:pause`, `probe:chain` on Fuji) ask `y` on a TTY or take `--yes`; mainnet always needs a TTY + `MAINNET`.

@@ -1,7 +1,7 @@
 // pnpm policy:set [--text "<Türkçe kurallar>"] [--<policyField> <value> …] [--reset] [--yes]
 // Flags apply over the current on-chain policy (SPEC §11, §13.3). Validated with PolicySchema before sending.
 import { confirmChainWrite, confirmTty, openPolicyChain, scriptArgs } from "../src/chain/deployment.js";
-import { AnthropicLlm } from "../src/agent/llm/anthropic.js";
+import { makeLlm } from "../src/agent/llm/factory.js";
 import { makePolicyParser } from "../src/agent/policy-parser.js";
 import { AtkClient, stdioSpawner } from "../src/atk/client.js";
 import { readAllowlist } from "../src/atk/manifest.js";
@@ -18,7 +18,7 @@ async function parseText(cfg: Config, text: string, now: number): Promise<Omit<P
   const atk = await AtkClient.start({ profile: cfg.atk.readProfile, modules: ["market"], readOnly: true, allow }, { spawner: stdioSpawner, mode: "paper" });
   try {
     const market = new AtkMarket(atk, clock);
-    const llm = new AnthropicLlm({ model: cfg.llm.model, apiKey: cfg.llm.apiKey ?? undefined, clock });
+    const llm = makeLlm(cfg, clock);
     return await makePolicyParser({ llm, clock, instrument: (id) => market.getInstrument(id) })(text, { nowMs: now });
   } finally {
     await atk.close();
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
   const args = scriptArgs();
   const textIdx = args.indexOf("--text");
   const text = textIdx >= 0 ? args[textIdx + 1] : undefined;
-  const cfg = loadConfig({ env: { LLM_PROVIDER: text === undefined ? "scripted" : "anthropic", ...process.env } });
+  const cfg = loadConfig({ env: { ...(text === undefined ? { LLM_PROVIDER: "scripted" } : {}), ...process.env } });
   const { chain } = openPolicyChain(cfg, { owner: true });
   const view = await chain.readView();
   const now = Date.now();

@@ -65,6 +65,16 @@ describe("refusals", () => {
       expect(String(e)).not.toContain(leaky);
     }
   });
+  it("openrouter: needs its own key and a vendor/model id; the key is used and redacted", () => {
+    expect(() => load({ EXECUTION_MODE: "fake", CHAIN: "local", LLM_PROVIDER: "openrouter", LLM_MODEL: "x/y:free" })).toThrow(/OPENROUTER_API_KEY/);
+    expect(() => load({ EXECUTION_MODE: "fake", CHAIN: "local", LLM_PROVIDER: "openrouter", OPENROUTER_API_KEY: "or" })).toThrow(/OpenRouter model id/);
+    const c = load({ EXECUTION_MODE: "fake", CHAIN: "local", LLM_PROVIDER: "openrouter", OPENROUTER_API_KEY: "or-secret", LLM_MODEL: "x/y:free" });
+    expect(c.llmProvider).toBe("openrouter");
+    expect(c.llm.apiKey).toBe("or-secret");
+    expect(JSON.stringify(redactConfig(c))).not.toContain("or-secret");
+    const live = load({ EXECUTION_MODE: "live", CHAIN: "fuji", LLM_PROVIDER: "openrouter", OPENROUTER_API_KEY: "k", LLM_MODEL: "x/y:free", AGENT_PRIVATE_KEY: K1, PORT: "8787", EXECUTOR_PORT: "8789" });
+    expect(live.mode).toBe("live");
+  });
   it("live on fuji with anthropic is allowed by config (arming is checked elsewhere)", () => {
     const c = load({ EXECUTION_MODE: "live", CHAIN: "fuji", ANTHROPIC_API_KEY: "k", AGENT_PRIVATE_KEY: K1, PORT: "8787", EXECUTOR_PORT: "8789" });
     expect(c.mode).toBe("live");

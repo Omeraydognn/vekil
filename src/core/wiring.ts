@@ -7,7 +7,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { makeAgentPort } from "../agent/agent.js";
 import { makeMarketContextFn } from "../agent/context.js";
 import { makeIndicatorsFn } from "../agent/indicators.js";
-import { AnthropicLlm } from "../agent/llm/anthropic.js";
+import { makeLlm } from "../agent/llm/factory.js";
 import { ScriptedLlm, ScriptFileSchema } from "../agent/llm/scripted.js";
 import { makePolicyParser, PROPOSE_POLICY } from "../agent/policy-parser.js";
 import { makeRogueBuilder, R1_PAIR } from "../agent/redteam.js";
@@ -181,7 +181,7 @@ export async function buildRuntime(cfg: Config, opts: RuntimeOpts = {}): Promise
       parserLlm = new ScriptedLlm(script.turns.filter(isParserTurn), resolver);
       model = "scripted";
     } else {
-      llm = new AnthropicLlm({ model: cfg.llm.model, apiKey: cfg.llm.apiKey ?? undefined, clock });
+      llm = makeLlm(cfg, clock);
       parserLlm = llm;
       model = cfg.llm.model;
     }

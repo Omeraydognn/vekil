@@ -1,10 +1,10 @@
 // pnpm probe:policy — parses 3 sample Turkish texts with the Text-to-Policy parser and prints proposal, mapping,
-// assumptions, questions and errors. No chain. LLM_PROVIDER=anthropic (default) uses the real model and the core read
+// assumptions, questions and errors. No chain. LLM_PROVIDER=anthropic (default) or openrouter uses the real model and the core read
 // instance for the instrument check; LLM_PROVIDER=scripted replays fixtures/policy-fixtures.json on the fake market.
 import { readFileSync } from "node:fs";
 import { AtkClient, stdioSpawner } from "../src/atk/client.js";
 import { readAllowlist } from "../src/atk/manifest.js";
-import { AnthropicLlm } from "../src/agent/llm/anthropic.js";
+import { makeLlm } from "../src/agent/llm/factory.js";
 import { ScriptedLlm } from "../src/agent/llm/scripted.js";
 import { makePolicyParser } from "../src/agent/policy-parser.js";
 import { AtkMarket } from "../src/market/atk-market.js";
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
     llm = ScriptedLlm.fromFile(JSON.parse(readFileSync("fixtures/policy-fixtures.json", "utf8")) as unknown, { clock });
     market = new FakeMarket(clock);
   } else {
-    llm = new AnthropicLlm({ model: cfg.llm.model, apiKey: cfg.llm.apiKey ?? undefined, clock });
+    llm = makeLlm(cfg, clock);
     const allow = readAllowlist("config/atk-allowlist.json").core.filter((n) => n === "market_get_instruments");
     const atk = await AtkClient.start({ profile: cfg.atk.readProfile, modules: ["market"], readOnly: true, allow }, { spawner: stdioSpawner, mode: "paper" });
     close = () => atk.close();
