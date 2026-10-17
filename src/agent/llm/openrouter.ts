@@ -1,6 +1,6 @@
 // OpenRouter client (OpenAI-compatible chat completions over fetch; no extra dependency). The loop speaks Anthropic
 // message shapes (tool_use / tool_result blocks), so requests and responses are translated here. Retry once after 2 s
-// if the deadline allows. A forced tool is sent as tool_choice "required" with only that tool offered; if the provider
+// if the deadline allows. LLM_MODEL may list several models separated by commas (OpenRouter fallback). A forced tool is sent as tool_choice "required" with only that tool offered; if the provider
 // rejects that, it is retried with "auto" (the loop and the parser handle a missing call).
 import type { ContentBlockParam, MessageParam } from "@anthropic-ai/sdk/resources/messages";
 import { z } from "zod";
@@ -88,8 +88,11 @@ export function toBody(req: LlmRequest, model: string, forcedMode: "required" | 
     type: "function",
     function: { name: t.name, description: t.description, parameters: t.input_schema },
   }));
+  // "a/x:free,b/y:free" → OpenRouter tries them in order (its `models` fallback list).
+  const models = model.split(",").map((m) => m.trim()).filter(Boolean);
   return {
-    model,
+    model: models[0] ?? model,
+    ...(models.length > 1 ? { models } : {}),
     max_tokens: req.maxTokens,
     messages: toOpenAiMessages(req.system, req.messages),
     ...(tools.length ? { tools, tool_choice: forced ? forcedMode : "auto" } : {}),

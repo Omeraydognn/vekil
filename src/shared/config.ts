@@ -137,7 +137,7 @@ export function loadConfig(opts: LoadConfigOpts = {}): Config {
     const u = new URL(e.LLM_BASE_URL);
     if (u.protocol !== "https:" && !(u.protocol === "http:" && LOOPBACK.has(u.hostname))) errors.push("LLM_BASE_URL must be https (http only for 127.0.0.1)");
   }
-  if (e.LLM_PROVIDER === "openrouter" && !e.LLM_BASE_URL && !e.LLM_MODEL.includes("/")) errors.push("LLM_PROVIDER=openrouter needs an OpenRouter model id in LLM_MODEL (e.g. vendor/model:free)");
+  if (e.LLM_PROVIDER === "openrouter" && !e.LLM_BASE_URL && !e.LLM_MODEL.split(",").every((m) => m.trim().includes("/"))) errors.push("LLM_PROVIDER=openrouter needs an OpenRouter model id in LLM_MODEL (e.g. vendor/model:free)");
   const readModules = e.ATK_READ_MODULES.split(",").map((m) => m.trim()).filter(Boolean);
   if (readModules.length === 0) errors.push("ATK_READ_MODULES must list at least one module");
   if (errors.length) throw new ConfigError(errors.join("; "));

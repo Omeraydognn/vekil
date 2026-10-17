@@ -71,6 +71,13 @@ describe("OpenRouterLlm", () => {
     expect(urls).toEqual(["https://gw.example/v1/chat/completions"]);
   });
 
+  it("a comma-separated LLM_MODEL becomes OpenRouter's fallback list", async () => {
+    const seen: Record<string, unknown>[] = [];
+    const llm = new OpenRouterLlm({ model: "a/x:free, b/y:free", apiKey: "k", clock: new SimClock(0), fetchImpl: fakeFetch([ok({ content: "ok" })], seen) });
+    await llm.create({ system: "S", tools: [], messages: [{ role: "user", content: "x" }], toolChoice: { type: "auto" }, maxTokens: 10 }, new AbortController().signal);
+    expect(seen[0]).toMatchObject({ model: "a/x:free", models: ["a/x:free", "b/y:free"] });
+  });
+
   it("does not retry a 401", async () => {
     const seen: Record<string, unknown>[] = [];
     const llm = new OpenRouterLlm({ model: "x/y", apiKey: "bad", clock: new SimClock(0, { autoAdvance: true }), fetchImpl: fakeFetch([{ status: 401, body: { error: { message: "No auth" } } }], seen) });
