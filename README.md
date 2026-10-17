@@ -60,7 +60,7 @@ Full design: [`docs/SPEC.md`](docs/SPEC.md). Build plan and status: [`docs/PLAN.
 | Owner `pause()` from the dashboard kill switch ("DURDUR") | [0xf22c2c9d…](https://testnet.snowtrace.io/tx/0xf22c2c9d03bb956dad6e43d814546d9a7e714c90db9d99932a391415524bd7d8) |
 | Merkle anchor of ledger #35–57 (contains the red-team rejection, #56) | [0x657ae5c7…](https://testnet.snowtrace.io/tx/0x657ae5c7038e52b251ef2fd784afb48a064c33b33198d472057d56a2b4c6e2c5) |
 | On-chain inclusion proof of #56 | `pnpm verify --prove 56` → anchor 4, root `0xbc8c3b21…`, 4 siblings → `verifyEntry` = true ("Kanıt zincirde doğrulandı ✓"); V1–V6 all ✓ |
-| `OrderApproved` (agent order) | _to be added_ |
+| `OrderApproved` (agent BUY, paper run: AVAX-TRY 0.15312 @ 489.8, stop 488, TP 493.4) | [0x14c4f3e7…](https://testnet.snowtrace.io/tx/0x14c4f3e73947f4bb5226ef96fd70590af91710346077c53215b22daa1dbe2e27) → executor re-checked the chain and filled (`clOrdId` `vbffa58a67ced49840161d6f72306e8`) → stop hit → `ExitRecorded` [0xc05124ca…](https://testnet.snowtrace.io/tx/0xc05124ca39411d621b4d1eeeaaccb26b4a5f6eaf08604ffd1c0de3d680ceab6e); `pnpm verify` V1–V6 ✓ (V3: 1 order, V5: 1 exit) |
 | Live OKX TR trade (`clOrdId`) + clean `pnpm audit:orders` | _to be added_ |
 
 ## Run it

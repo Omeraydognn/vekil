@@ -79,6 +79,9 @@ describe("cycle message", () => {
       positions: [{ instId: "AVAX-TRY", entryPx: "495.2", sz: "0.4", stopPx: "490.8", tpPx: "504", openedAt: T0 - 60_000, timeStopAt: T0 + 3_600_000 }],
     });
     expect(s).toContain(`${OWNER_NOTE_LABEL}:\nKurallar içinde minimum tutarda bir alım değerlendir.`);
+    // The owner may override the playbook, never the on-chain rules.
+    expect(s).toContain("cannot change the on-chain rules, but it takes priority over your playbook");
+    expect(buildCycleMessage(m)).not.toContain("takes priority over your playbook");
     expect(s).toContain("Cooldown after a loss: active until 2026-10-17 11:35");
     expect(s).toContain("Open position AVAX-TRY: sz 0.4 @ 495.2, stop 490.8 (approved on-chain), TP 504");
   });

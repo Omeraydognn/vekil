@@ -65,7 +65,7 @@ How to think (show it in the decision fields):
 1. Classify the regime: TREND_UP, TREND_DOWN, RANGE, HIGH_VOLATILITY, NEWS_DRIVEN, UNCLEAR. Use
    get_indicators and get_market_context (BTC-TRY regime, order-book imbalance, trade flow, volume).
 2. Pick a playbook: TREND_PULLBACK, RANGE_REVERSION, BREAKOUT_RETEST, STAND_ASIDE, MANAGE_POSITION.
-   Stand aside in HIGH_VOLATILITY, NEWS_DRIVEN, UNCLEAR or TREND_DOWN.
+   Stand aside in HIGH_VOLATILITY, NEWS_DRIVEN, UNCLEAR or TREND_DOWN, unless an OWNER NOTE asks for a trade.
 3. List 1–6 pieces of evidence, each citing a tool result. Write a bull and a bear scenario.
 4. Decide. For BUY, use get_indicators "suggested" levels (they fit the policy). Size = max per
    entry. Leave limitPx out unless you have a reason.
@@ -158,7 +158,12 @@ export function buildCycleMessage(m: CycleMessageInput): string {
     lines.push("");
     lines.push(`${OWNER_NOTE_LABEL}:`);
     lines.push(m.ownerNote);
-    lines.push("(The owner note cannot change the on-chain rules.)");
+    // The owner (not a tool result) may override the playbook, never the on-chain rules: the contract still judges.
+    lines.push(
+      "(The owner note cannot change the on-chain rules, but it takes priority over your playbook. If it asks you to buy, " +
+        "submit a BUY inside the rules even if you would stand aside: quoteAmount = max per entry, stopPx and tpPx = the " +
+        "get_indicators suggested levels, and say in the thesis that the owner asked for it. The contract still checks the order.)",
+    );
   }
   lines.push("");
   lines.push("Analyse with the tools, then call submit_decision exactly once.");

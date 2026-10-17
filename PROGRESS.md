@@ -47,13 +47,15 @@ The owner exits (formerly S6) are now Must M17.
 | What | Tx / ID | Link |
 |---|---|---|
 | PolicySet with Turkish source text | v3 0xdfce1ca9… | https://testnet.snowtrace.io/tx/0xdfce1ca975af5ccbf6d2664e942e5599eaf39467548b97ecdb0953550680c076 |
-| OrderApproved (live trade) | | |
+| OrderApproved (paper run on Fuji; live trade still to do) | 0x14c4f3e7… → fill vbffa58a… → STOP_HIT → ExitRecorded 0xc05124ca… | https://testnet.snowtrace.io/tx/0x14c4f3e73947f4bb5226ef96fd70590af91710346077c53215b22daa1dbe2e27 |
 | OKX clOrdId of the live trade | | |
 | OrderRejected + Paused (red-team) | R1, one tx 0x4c254b82… | https://testnet.snowtrace.io/tx/0x4c254b825fb099417e40aa1f82ba596ce16cc3bcce9f5d0fbaeb27beaa2bf38c |
 | Anchored + on-chain proof (verifyEntry) | anchor #35–57 0x657ae5c7…; `pnpm verify --prove 56` ✓ | https://testnet.snowtrace.io/tx/0x657ae5c7038e52b251ef2fd784afb48a064c33b33198d472057d56a2b4c6e2c5 |
 | `pnpm audit:orders` report (all OK) | | |
 
 ## Decisions log
+- 17 Oct 16:30 — Owner note may override the playbook (e.g. stand aside in TREND_DOWN), never the on-chain rules: the cycle message says so and C1 step 2 says "unless an OWNER NOTE asks for a trade". Without it the agent ignored "Kurallar içinde minimum tutarda bir alım değerlendir." in a down trend. The contract still judges every order (SPEC §10.2 unchanged in spirit).
+- 17 Oct 16:30 — AVAX-TRY minimum size makes a 45 TL order fail ORDER_BELOW_MIN_SIZE (the agent reported it); use ≥ ~60 TL per trade for the live run.
 - 17 Oct (human request) — LLM_PROVIDER gains `openrouter` (OpenAI-compatible chat API over fetch, no new dependency) next to `anthropic`. This changes the frozen `src/shared/config.ts` with the human's approval: `OPENROUTER_API_KEY`, `LLM_MODEL` must be an OpenRouter id (`vendor/model`), demo/live accept anthropic or openrouter (never scripted). Risk noted: free models have rate limits and weaker tool calling.
 - 17 Oct 11:10 — One session continued all four WIP tracks on `claude/intelligent-lamport-lcmrjk` (PLAN "1 session" layout) and did M2 steps 1–3; `src/core/dev-stubs/` deleted. `src/shared` unchanged.
 - 17 Oct 11:10 — `<R1_PAIR>` = DOGE-TRY (`R1_PAIR` in `src/agent/redteam.ts`). R1 carries a limit from DOGE-TRY's ask so the contract sees the real notional (no ZERO_VALUE).
