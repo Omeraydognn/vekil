@@ -148,6 +148,17 @@ describe.skipIf(!hasAnvil)("ViemPolicyChain on anvil", () => {
     expect(v.policyHash).toBe(policyHash(p));
     expect(v.paused).toBe(true); // setPolicy does not unpause
     expect((await fresh.pause()).ok).toBe(false); // no owner key
+    // An RPC that caps eth_getLogs at a few blocks (Avalanche public RPC: 100): windowed backward scan.
+    const capped = new ViemPolicyChain({
+      rpcUrl: lc.anvil.rpcUrl,
+      chainId: 31337,
+      address: lc.deployment.address,
+      fromBlock: lc.deployment.deployBlock,
+      pollingIntervalMs: 50,
+      logRange: 1,
+    });
+    expect((await capped.readView()).policy).toEqual(p);
+    if (approvedHash) expect((await capped.approvedRequest(approvedHash))?.instId).toBe(VECTOR_REQ.instId);
   });
 
   it("owner pause/unpause/setAgentId and encodeOwnerCall", async () => {

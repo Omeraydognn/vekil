@@ -39,6 +39,8 @@ export const RECEIPT_TIMEOUT_MS = 10_000;
 /** Multicall3 (same address on every EVM chain; deployed on Avalanche C-Chain and Fuji). */
 export const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
 const MULTICALL3_CHAINS = new Set([43113, 43114]);
+/** The public Avalanche RPC refuses eth_getLogs over more than 100 blocks. */
+export const AVALANCHE_LOG_RANGE = 100n;
 const PREFIX30_RE = /^[0-9a-f]{30}$/;
 const ZERO_BYTES32 = ZERO_HASH;
 
@@ -52,6 +54,8 @@ export interface ViemPolicyChainOpts {
   ownerKey?: Hex;
   /** First block to search for logs (the deploy block). */
   fromBlock?: number;
+  /** Max blocks per eth_getLogs (default: 100 on Avalanche, unlimited elsewhere). */
+  logRange?: number;
   clock?: Clock;
   /** Receipt polling interval; small values suit anvil. */
   pollingIntervalMs?: number;
@@ -154,6 +158,8 @@ export class ViemPolicyChain implements PolicyChain {
   private readonly owner: Signer | null;
   private readonly clock: Clock;
   private readonly fromBlock: bigint;
+  /** Max blocks per eth_getLogs, or null for one query (anvil). */
+  private readonly logRange: bigint | null;
   private readonly receiptTimeoutMs: number;
   private readonly pollingIntervalMs: number;
   /** sourceTextHash → text (from our own setPolicy calls or PolicySet logs). */
@@ -168,6 +174,7 @@ export class ViemPolicyChain implements PolicyChain {
     this.addr = this.address as Hex;
     this.clock = opts.clock ?? new SystemClock();
     this.fromBlock = BigInt(opts.fromBlock ?? 0);
+    this.logRange = opts.logRange !== undefined ? BigInt(opts.logRange) : MULTICALL3_CHAINS.has(opts.chainId) ? AVALANCHE_LOG_RANGE : null;
     this.receiptTimeoutMs = opts.receiptTimeoutMs ?? RECEIPT_TIMEOUT_MS;
     this.pollingIntervalMs = opts.pollingIntervalMs ?? 1000;
     this.chain = defineChain({
@@ -265,20 +272,16 @@ export class ViemPolicyChain implements PolicyChain {
   private async sourceTextFor(srcHash: Hex32, version: number): Promise<string> {
     const cached = this.sourceTexts.get(srcHash);
     if (cached !== undefined) return cached;
-    const logs = await this.pub.getContractEvents({
-      address: this.addr,
-      abi: vekilPolicyAbi,
-      eventName: "PolicySet",
-      args: { version: BigInt(version) },
-      fromBlock: this.fromBlock,
-      toBlock: "latest",
-    });
-    for (const l of logs) {
-      const text = l.args.sourceText;
-      if (typeof text === "string" && keccakUtf8(text) === srcHash) {
-        this.sourceTexts.set(srcHash, text);
-        return text;
-      }
+    const matches = (l: { args: { sourceText?: string } }) => typeof l.args.sourceText === "string" && keccakUtf8(l.args.sourceText) === srcHash;
+    const logs = await this.scanLogs(
+      (fromBlock, toBlock) =>
+        this.pub.getContractEvents({ address: this.addr, abi: vekilPolicyAbi, eventName: "PolicySet", args: { version: BigInt(version) }, fromBlock, toBlock }),
+      (found) => found.some(matches),
+    );
+    const hit = logs.find(matches);
+    if (hit?.args.sourceText !== undefined) {
+      this.sourceTexts.set(srcHash, hit.args.sourceText);
+      return hit.args.sourceText;
     }
     throw new Error(`source text for ${srcHash} not found in PolicySet logs`);
   }
@@ -361,14 +364,11 @@ export class ViemPolicyChain implements PolicyChain {
 
   /** The approved request, from its OrderApproved log; instId strings come from PolicySet logs. */
   async approvedRequest(orderHash: Hex32): Promise<OrderRequest | null> {
-    const logs = await this.pub.getContractEvents({
-      address: this.addr,
-      abi: vekilPolicyAbi,
-      eventName: "OrderApproved",
-      args: { orderHash: lowerHex32(orderHash) },
-      fromBlock: this.fromBlock,
-      toBlock: "latest",
-    });
+    const logs = await this.scanLogs(
+      (fromBlock, toBlock) =>
+        this.pub.getContractEvents({ address: this.addr, abi: vekilPolicyAbi, eventName: "OrderApproved", args: { orderHash: lowerHex32(orderHash) }, fromBlock, toBlock }),
+      (found) => found.length > 0,
+    );
     const req = logs[0]?.args.req;
     if (!req) return null;
     const instId = await this.instIdString(lowerHex32(req.instId));
@@ -389,15 +389,31 @@ export class ViemPolicyChain implements PolicyChain {
   private async instIdString(hash: Hex32): Promise<string | null> {
     const known = this.instIds.get(hash);
     if (known !== undefined) return known;
-    const logs = await this.pub.getContractEvents({
-      address: this.addr,
-      abi: vekilPolicyAbi,
-      eventName: "PolicySet",
-      fromBlock: this.fromBlock,
-      toBlock: "latest",
-    });
-    for (const l of logs) for (const id of l.args.instIds ?? []) this.instIds.set(instIdHash(id), id);
+    await this.scanLogs(
+      (fromBlock, toBlock) => this.pub.getContractEvents({ address: this.addr, abi: vekilPolicyAbi, eventName: "PolicySet", fromBlock, toBlock }),
+      (found) => {
+        for (const l of found) for (const id of l.args.instIds ?? []) this.instIds.set(instIdHash(id), id);
+        return this.instIds.has(hash);
+      },
+    );
     return this.instIds.get(hash) ?? null;
+  }
+
+  /**
+   * eth_getLogs from fromBlock to latest. Where the RPC caps the range (Avalanche public RPC: 100 blocks), scan
+   * backwards from the latest block in windows and stop as soon as `done` is satisfied (recent events come first).
+   */
+  private async scanLogs<L>(query: (fromBlock: bigint, toBlock: bigint | "latest") => Promise<L[]>, done: (found: L[]) => boolean): Promise<L[]> {
+    if (this.logRange === null) return query(this.fromBlock, "latest");
+    const found: L[] = [];
+    let to = await this.pub.getBlockNumber();
+    while (to >= this.fromBlock) {
+      const from = to - this.logRange + 1n > this.fromBlock ? to - this.logRange + 1n : this.fromBlock;
+      found.unshift(...(await query(from, to)));
+      if (done(found)) break;
+      to = from - 1n;
+    }
+    return found;
   }
 
   // ---------------------------------------------------------------- writes
