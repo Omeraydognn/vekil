@@ -46,11 +46,11 @@ The owner exits (formerly S6) are now Must M17.
 ## Evidence for the demo
 | What | Tx / ID | Link |
 |---|---|---|
-| PolicySet with Turkish source text | | |
+| PolicySet with Turkish source text | v3 0xdfce1ca9… | https://testnet.snowtrace.io/tx/0xdfce1ca975af5ccbf6d2664e942e5599eaf39467548b97ecdb0953550680c076 |
 | OrderApproved (live trade) | | |
 | OKX clOrdId of the live trade | | |
-| OrderRejected + Paused (red-team) | | |
-| Anchored + on-chain proof (verifyEntry) | | |
+| OrderRejected + Paused (red-team) | R1, one tx 0x4c254b82… | https://testnet.snowtrace.io/tx/0x4c254b825fb099417e40aa1f82ba596ce16cc3bcce9f5d0fbaeb27beaa2bf38c |
+| Anchored + on-chain proof (verifyEntry) | anchor #35–57 0x657ae5c7…; `pnpm verify --prove 56` ✓ | https://testnet.snowtrace.io/tx/0x657ae5c7038e52b251ef2fd784afb48a064c33b33198d472057d56a2b4c6e2c5 |
 | `pnpm audit:orders` report (all OK) | | |
 
 ## Decisions log

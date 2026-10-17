@@ -55,10 +55,12 @@ Full design: [`docs/SPEC.md`](docs/SPEC.md). Build plan and status: [`docs/PLAN.
 |---|---|
 | VekilPolicy (dev, Fuji) | [`0x75c9b0155b0b026f869351ab3450723c44e57999`](https://testnet.snowtrace.io/address/0x75c9b0155b0b026f869351ab3450723c44e57999) |
 | Deploy tx | [0xdd668a6e…](https://testnet.snowtrace.io/tx/0xdd668a6e2cff771bc46fffce96a757703697a14382dcd76ecad06820e5138d0a) |
-| `PolicySet` with Turkish source text | _to be added_ |
+| `PolicySet` v3 with the owner's Turkish source text (in the event) | [0xdfce1ca9…](https://testnet.snowtrace.io/tx/0xdfce1ca975af5ccbf6d2664e942e5599eaf39467548b97ecdb0953550680c076) · earlier v2: [0x2d632535…](https://testnet.snowtrace.io/tx/0x2d632535df2888878810bc93924066ea95be9b8f02de70d1d72b7119b4ba4860) |
+| `OrderRejected` + `Paused(address(this))` in one tx (red-team R1: 10,000 TL DOGE-TRY, no stop → `INSTRUMENT_NOT_ALLOWED`, `ORDER_TOO_LARGE`, `STOP_MISSING`, critical) | [0x4c254b82…](https://testnet.snowtrace.io/tx/0x4c254b825fb099417e40aa1f82ba596ce16cc3bcce9f5d0fbaeb27beaa2bf38c) |
+| Owner `pause()` from the dashboard kill switch ("DURDUR") | [0xf22c2c9d…](https://testnet.snowtrace.io/tx/0xf22c2c9d03bb956dad6e43d814546d9a7e714c90db9d99932a391415524bd7d8) |
+| Merkle anchor of ledger #35–57 (contains the red-team rejection, #56) | [0x657ae5c7…](https://testnet.snowtrace.io/tx/0x657ae5c7038e52b251ef2fd784afb48a064c33b33198d472057d56a2b4c6e2c5) |
+| On-chain inclusion proof of #56 | `pnpm verify --prove 56` → anchor 4, root `0xbc8c3b21…`, 4 siblings → `verifyEntry` = true ("Kanıt zincirde doğrulandı ✓"); V1–V6 all ✓ |
 | `OrderApproved` (agent order) | _to be added_ |
-| `OrderRejected` + `Paused` (red-team) | _to be added_ |
-| Anchor + on-chain proof (`verifyEntry`) | _to be added_ |
 | Live OKX TR trade (`clOrdId`) + clean `pnpm audit:orders` | _to be added_ |
 
 ## Run it
