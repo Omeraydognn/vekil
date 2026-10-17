@@ -35,6 +35,7 @@ const ResponseSchema = z.object({
 
 export class OpenRouterError extends Error {
   override name = "OpenRouterError";
+  // `message` never contains the key: only the provider's error text and the HTTP status.
   constructor(
     readonly status: number,
     message: string,
@@ -120,6 +121,8 @@ export interface OpenRouterOptions {
   model: string;
   apiKey: string;
   clock: Clock;
+  /** An OpenAI-compatible base URL (LLM_BASE_URL, e.g. https://host/v1); default OpenRouter. */
+  baseUrl?: string;
   /** For tests. */
   fetchImpl?: typeof fetch;
 }
@@ -131,7 +134,8 @@ export class OpenRouterLlm implements LlmClient {
   }
 
   private async post(body: Record<string, unknown>, signal: AbortSignal): Promise<LlmResponse> {
-    const res = await this.fetchImpl(OPENROUTER_URL, {
+    const url = this.opts.baseUrl ? `${this.opts.baseUrl.replace(/\/+$/, "")}/chat/completions` : OPENROUTER_URL;
+    const res = await this.fetchImpl(url, {
       method: "POST",
       headers: { authorization: `Bearer ${this.opts.apiKey}`, "content-type": "application/json", "x-title": "VEKIL" },
       body: JSON.stringify(body),

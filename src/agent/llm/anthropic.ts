@@ -14,6 +14,8 @@ export const RETRY_DELAY_MS = 2_000;
 export interface AnthropicLlmOptions {
   model: string;
   apiKey?: string;
+  /** An Anthropic-compatible gateway (LLM_BASE_URL); default api.anthropic.com. */
+  baseURL?: string;
   clock: Clock;
   /** For tests: an object with the same messages.create shape. */
   client?: Pick<Anthropic, "messages">;
@@ -51,7 +53,7 @@ export function fromMessage(msg: Anthropic.Message): LlmResponse {
 export class AnthropicLlm implements LlmClient {
   private readonly client: Pick<Anthropic, "messages">;
   constructor(private readonly opts: AnthropicLlmOptions) {
-    this.client = opts.client ?? new Anthropic({ apiKey: opts.apiKey, maxRetries: 0 });
+    this.client = opts.client ?? new Anthropic({ apiKey: opts.apiKey, maxRetries: 0, ...(opts.baseURL ? { baseURL: opts.baseURL } : {}) });
   }
 
   async create(req: LlmRequest, signal: AbortSignal): Promise<LlmResponse> {

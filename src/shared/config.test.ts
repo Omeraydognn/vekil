@@ -75,6 +75,13 @@ describe("refusals", () => {
     const live = load({ EXECUTION_MODE: "live", CHAIN: "fuji", LLM_PROVIDER: "openrouter", OPENROUTER_API_KEY: "k", LLM_MODEL: "x/y:free", AGENT_PRIVATE_KEY: K1, PORT: "8787", EXECUTOR_PORT: "8789" });
     expect(live.mode).toBe("live");
   });
+  it("LLM_BASE_URL: https only (http on loopback), redacted to origin", () => {
+    expect(() => load({ ...FAKE, LLM_BASE_URL: "http://example.com" })).toThrow(/https/);
+    expect(load({ ...FAKE, LLM_BASE_URL: "http://127.0.0.1:4000" }).llm.baseUrl).toBe("http://127.0.0.1:4000");
+    const c = load({ ...FAKE, LLM_BASE_URL: "https://gw.example/v1?key=secret" });
+    expect(JSON.stringify(redactConfig(c))).not.toContain("secret");
+    expect(load({ EXECUTION_MODE: "fake", CHAIN: "local", LLM_PROVIDER: "openrouter", OPENROUTER_API_KEY: "k", LLM_BASE_URL: "https://gw.example/v1" }).llm.model).toBe("claude-sonnet-5-5");
+  });
   it("live on fuji with anthropic is allowed by config (arming is checked elsewhere)", () => {
     const c = load({ EXECUTION_MODE: "live", CHAIN: "fuji", ANTHROPIC_API_KEY: "k", AGENT_PRIVATE_KEY: K1, PORT: "8787", EXECUTOR_PORT: "8789" });
     expect(c.mode).toBe("live");

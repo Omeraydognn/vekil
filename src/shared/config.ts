@@ -37,6 +37,7 @@ const EnvSchema = z.object({
   ANTHROPIC_API_KEY: optStr(),
   OPENROUTER_API_KEY: optStr(),
   LLM_MODEL: str("claude-sonnet-5-5"),
+  LLM_BASE_URL: z.string().url().optional(),
   LLM_MAX_TOOL_CALLS: int(8, 2, 50),
   LLM_CYCLE_TIMEOUT_SEC: int(60, 5, 600),
   LLM_MAX_CYCLES_PER_HOUR: int(20, 1, 200),
@@ -69,7 +70,7 @@ export interface Config {
   feeRate: string;
   paperStartQuote: string;
   preflight: { maxSpreadPct: string; priceCollarPct: string; maxSnapshotAgeSec: number; cooldownAfterLossMin: number };
-  llm: { apiKey: string | null; model: string; maxToolCalls: number; cycleTimeoutSec: number; maxCyclesPerHour: number };
+  llm: { apiKey: string | null; model: string; baseUrl: string | null; maxToolCalls: number; cycleTimeoutSec: number; maxCyclesPerHour: number };
   rpc: { local: string; fuji: string; mainnet: string };
   agentPrivateKey: `0x${string}` | null;
   ownerPrivateKey: `0x${string}` | null;
@@ -132,7 +133,11 @@ export function loadConfig(opts: LoadConfigOpts = {}): Config {
   }
   if (e.LLM_PROVIDER === "anthropic" && !e.ANTHROPIC_API_KEY) errors.push("ANTHROPIC_API_KEY is required for LLM_PROVIDER=anthropic");
   if (e.LLM_PROVIDER === "openrouter" && !e.OPENROUTER_API_KEY) errors.push("OPENROUTER_API_KEY is required for LLM_PROVIDER=openrouter");
-  if (e.LLM_PROVIDER === "openrouter" && !e.LLM_MODEL.includes("/")) errors.push("LLM_PROVIDER=openrouter needs an OpenRouter model id in LLM_MODEL (e.g. vendor/model:free)");
+  if (e.LLM_BASE_URL) {
+    const u = new URL(e.LLM_BASE_URL);
+    if (u.protocol !== "https:" && !(u.protocol === "http:" && LOOPBACK.has(u.hostname))) errors.push("LLM_BASE_URL must be https (http only for 127.0.0.1)");
+  }
+  if (e.LLM_PROVIDER === "openrouter" && !e.LLM_BASE_URL && !e.LLM_MODEL.includes("/")) errors.push("LLM_PROVIDER=openrouter needs an OpenRouter model id in LLM_MODEL (e.g. vendor/model:free)");
   const readModules = e.ATK_READ_MODULES.split(",").map((m) => m.trim()).filter(Boolean);
   if (readModules.length === 0) errors.push("ATK_READ_MODULES must list at least one module");
   if (errors.length) throw new ConfigError(errors.join("; "));
@@ -159,6 +164,7 @@ export function loadConfig(opts: LoadConfigOpts = {}): Config {
     llm: {
       apiKey: (e.LLM_PROVIDER === "openrouter" ? e.OPENROUTER_API_KEY : e.ANTHROPIC_API_KEY) ?? null,
       model: e.LLM_MODEL,
+      baseUrl: e.LLM_BASE_URL ?? null,
       maxToolCalls: e.LLM_MAX_TOOL_CALLS,
       cycleTimeoutSec: e.LLM_CYCLE_TIMEOUT_SEC,
       maxCyclesPerHour: e.LLM_MAX_CYCLES_PER_HOUR,
@@ -193,7 +199,7 @@ export function redactConfig(c: Config): Config {
     ...c,
     rpcUrl: c.rpcUrl === null ? null : origin(c.rpcUrl),
     rpc: { local: origin(c.rpc.local), fuji: origin(c.rpc.fuji), mainnet: origin(c.rpc.mainnet) },
-    llm: { ...c.llm, apiKey: r(c.llm.apiKey) },
+    llm: { ...c.llm, apiKey: r(c.llm.apiKey), baseUrl: c.llm.baseUrl === null ? null : origin(c.llm.baseUrl) },
     agentPrivateKey: r(c.agentPrivateKey) as `0x${string}` | null,
     ownerPrivateKey: r(c.ownerPrivateKey) as `0x${string}` | null,
   };

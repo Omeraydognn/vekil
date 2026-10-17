@@ -60,6 +60,17 @@ describe("OpenRouterLlm", () => {
     expect(r.content[0]).toMatchObject({ type: "tool_use", name: "submit_decision", input: "{bad" });
   });
 
+  it("uses LLM_BASE_URL for an OpenAI-compatible gateway", async () => {
+    const urls: string[] = [];
+    const f = (async (url: unknown) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 });
+    }) as typeof fetch;
+    const llm = new OpenRouterLlm({ model: "m", apiKey: "k", baseUrl: "https://gw.example/v1/", clock: new SimClock(0), fetchImpl: f });
+    await llm.create({ system: "S", tools: [], messages: [{ role: "user", content: "x" }], toolChoice: { type: "auto" }, maxTokens: 10 }, new AbortController().signal);
+    expect(urls).toEqual(["https://gw.example/v1/chat/completions"]);
+  });
+
   it("does not retry a 401", async () => {
     const seen: Record<string, unknown>[] = [];
     const llm = new OpenRouterLlm({ model: "x/y", apiKey: "bad", clock: new SimClock(0, { autoAdvance: true }), fetchImpl: fakeFetch([{ status: 401, body: { error: { message: "No auth" } } }], seen) });
