@@ -3,19 +3,19 @@
 This file is updated on `main` only. Track branches put their status in commit messages, and the M2 session copies it here after merging. Keep it short. Newest decisions go at the top.
 
 ## Now
-- Milestone: M0 done (17 Oct, 09:15). Next: M1 tracks (C is ready in ../vekil-c; A, B, D start from main).
+- Milestone: M1 (A, B, C, D) and M2 steps 1–3 done on branch `claude/intelligent-lamport-lcmrjk` (one session merged the four WIP track branches and finished them). Next: M2 step 4 (Fuji dev contract + paper run) and step 5 (first live trade, human).
 - Working on: —
-- Blocked by: human setup — `~/.okx/config.toml` profiles (tr-read, tr-trade), Fuji wallets, Anthropic key, dev `.env`.
+- Blocked by: human setup for real runs — `~/.okx/config.toml` (tr-read, tr-trade), Fuji wallets + AVAX, `ANTHROPIC_API_KEY`, dev `.env`. The cloud session has no route to tr.okx.com and no API key, so `probe:market`, the Anthropic variants of `probe:agent`/`probe:policy` and `atk:probe` with auth must run on a dev machine.
 
 ## Milestones
 | Milestone | Status | Evidence (command → result) | Commit |
 |---|---|---|---|
 | M0 foundation (shared + frozen vectors, anvil ok) | ☑ | `pnpm i && pnpm check` → 12 files, 118 tests pass; vectors re-derived with `cast` (also by vekil-reviewer: PASS); `anvil --version` → 1.5.1-stable | M0 |
-| M1-C contract + chain + ledger + verify (started 10:00) | ☐ | | |
-| M1-B ATK discovery + preflight + market + executor + auditor | ☐ | | |
-| M1-A agent + reasoning + red-team + Text-to-Policy | ☐ | | |
-| M1-D core + server + dashboard (UI replay) | ☐ | | |
-| M2 merge + smoke on anvil + paper on Fuji (approvals on-chain) | ☐ | | |
+| M1-C contract + chain + ledger + verify (started 10:00) | ☑ | `forge test` → 101/101; `pnpm probe:chain --local` → 9/9 (approve, R1 critical reject + auto-pause, recordExit, anchor while paused, verifyEntry); ledger/verify tests (V1–V6, proof, tamper) | Track C |
+| M1-B ATK discovery + preflight + market + executor + auditor | ☑ (probe:market pending) | ATK_NOTES §0–6 (auth items UNKNOWN); executor tests cover every refusal code, inventory, dust, one in-flight exit, monitor, pause watcher; auditor A1–A3. `pnpm probe:market` not run (no network to tr.okx.com in the cloud session) | Track B |
+| M1-A agent + reasoning + red-team + Text-to-Policy | ☑ (real-LLM probes pending) | `LLM_PROVIDER=scripted pnpm probe:policy` → 3 proposals; `EXECUTION_MODE=fake LLM_PROVIDER=scripted pnpm probe:agent` → tool trace + reasoning + zod OK. Anthropic/ATK variants need the key and network | Track A |
+| M1-D core + server + dashboard (UI replay) | ☑ | `UI_REPLAY=fixtures/ui-events.jsonl pnpm dev` renders feed, reasoning, red-team, brake, positions; core tests (kill vs mutex, idempotent kill, owner close while HALTED, sync awaits recordExit, SC13) | Track D |
+| M2 merge + smoke on anvil + paper on Fuji (approvals on-chain) | ◐ smoke ☑, Fuji/paper ☐ | `pnpm smoke` → 14/14 in 12.5 s on the real contract; `EXECUTION_MODE=fake LLM_PROVIDER=scripted CHAIN=local pnpm dev` end to end (API + dashboard). `pnpm check` → 325/325. Fuji + paper needs the human setup | M2 |
 | M2 first live round trip + clean `audit:orders` (../vekil-live) | ☐ | | |
 | M3 kill timings, red-team on-chain, proof, auditor, deferred checks, ERC-8004 | ☐ | | |
 | 16:15 freeze: live updated, Turkish policy on-chain, ERC-8004, running | ☐ | | |
@@ -54,6 +54,13 @@ The owner exits (formerly S6) are now Must M17.
 | `pnpm audit:orders` report (all OK) | | |
 
 ## Decisions log
+- 17 Oct 11:10 — One session continued all four WIP tracks on `claude/intelligent-lamport-lcmrjk` (PLAN "1 session" layout) and did M2 steps 1–3; `src/core/dev-stubs/` deleted. `src/shared` unchanged.
+- 17 Oct 11:10 — `<R1_PAIR>` = DOGE-TRY (`R1_PAIR` in `src/agent/redteam.ts`). R1 carries a limit from DOGE-TRY's ask so the contract sees the real notional (no ZERO_VALUE).
+- 17 Oct 11:10 — Owner chain scripts (`chain:fuji`, `policy:set`, `owner:pause`, `probe:chain` on Fuji) ask `y` on a TTY or take `--yes`; mainnet always needs a TTY + `MAINNET`.
+- 17 Oct 11:10 — The scripted LLM fixture feeds parser turns (`propose_policy`) and agent turns from one file, each in its own order.
+- 17 Oct 11:10 — V5: an EXIT without an EXIT_RECORDED entry yet is "pending" (a warning in details), not a failure. Tamper: V2 uses recomputed hashes, so a tampered entry breaks its anchor too.
+- 17 Oct 10:30 — Track C decisions C1–C5 (see the track-c commit): duplicate instIds rejected; readView takes sourceText from the PolicySet log and fails closed; policyVersion starts at 0; pause/unpause idempotent.
+- 17 Oct 10:00 — Track A: Sonnet 5.5 rejects forced tool_choice; the Anthropic adapter sends tool_choice auto with only the forced tool.
 - 17 Oct 09:15 — Work is local only: no git remote, never push (human).
 - 17 Oct 09:15 — Frozen vectors live in `src/shared/vectors.ts`, computed with Foundry `cast abi-encode`/`cast keccak`, not with our TS. Track C asserts the same constants in forge.
 - 17 Oct 09:15 — Toolchain: Node ≥ 22.12 (vitest 5 requires it; SPEC said 20+), TypeScript 7.0.2, zod 4.6.7, viem 2.57.7, ATK 1.4.8 (global = local pin, refs tag v1.4.8).
@@ -70,10 +77,10 @@ The owner exits (formerly S6) are now Must M17.
 - 17 Oct 08:10 — U11: ATK pinned to 1.4.8 (installed globally).
 
 ## Open questions (SPEC §25)
-- [ ] 1 ATK tool names/params (incl. order history)
-- [ ] 2 clOrdId / ioc / tdMode / tgtCcy
-- [ ] 3 capabilities fields; does --read-only hide or refuse write tools; which module holds balances/permissions?
-- [ ] 4 AVAX-TRY / <R1_PAIR> (DOGE-TRY?) / BTC-TRY specs (≤ 8 decimals?)
+- [x] 1 ATK tool names/params (incl. order history) — ATK_NOTES §2 (`spot_get_orders status=history`)
+- [x] 2 clOrdId / ioc / tdMode / tgtCcy — ATK_NOTES §3 (clOrdId ≤ 32, ioc ok, tdMode required → cash, market sell sz in base)
+- [x] 3 capabilities fields; --read-only HIDES write tools; balances/permissions in `account` — ATK_NOTES §1
+- [x] 4 AVAX-TRY / DOGE-TRY / BTC-TRY specs — ATK_NOTES §4 (BTC-TRY lotSz 9 dp, context only)
 - [ ] 5 fee rate
 - [ ] 6 demo on TR
 - [ ] 7 news on TR
@@ -87,4 +94,5 @@ The owner exits (formerly S6) are now Must M17.
 - [x] 15 anvil on every dev machine — this Mac: anvil/forge 1.5.1-stable (check other machines)
 
 ## Known bugs / follow-ups
--
+- Deferred to M3 (not built yet): SC4, SC6, SC9, SC10, SC12, SC14; `register-agent` + `docs/agent-card.json` (ERC-8004 ABI not verified); `pnpm evidence` (S7); `executor.Dockerfile` (S3); "Ajana sor" (S2).
+- `pnpm atk:probe` must be re-run with the `tr-read` profile to fill the auth-only items in ATK_NOTES (balance shape, fee, key permissions, demo, news).
