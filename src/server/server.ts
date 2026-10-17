@@ -26,6 +26,17 @@ function tokenOk(given: unknown, token: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** A short message for the dashboard: viem errors carry the whole request and the RPC's HTML page in `message`. */
+export function errorText(e: unknown): string {
+  let rateLimited = false;
+  for (let c: unknown = e, i = 0; c && i < 8; c = (c as { cause?: unknown }).cause, i++) if ((c as { status?: unknown }).status === 429) rateLimited = true;
+  if (rateLimited) return "Zincir RPC'si hız sınırına takıldı (HTTP 429). Biraz bekleyip tekrar deneyin ya da .env'de başka bir RPC adresi (FUJI_RPC_URL / MAINNET_RPC_URL) kullanın.";
+  if (!(e instanceof Error)) return String(e).slice(0, 300);
+  const short = (e as { shortMessage?: unknown }).shortMessage;
+  const text = typeof short === "string" && short ? short : (e.message.trim().split("\n")[0] ?? "");
+  return (text || e.name || "Hata").slice(0, 300);
+}
+
 export function newServerToken(dataDir: string): string {
   const token = randomBytes(32).toString("hex");
   mkdirSync(dataDir, { recursive: true });
@@ -95,7 +106,7 @@ export function coreApp(o: CoreServerOpts): express.Express {
   const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response) => {
     fn(req, res).catch((e: unknown) => {
       const status = e instanceof CoreError ? e.status : 500;
-      res.status(status).json({ error: e instanceof Error ? e.message : String(e) });
+      res.status(status).json({ error: errorText(e) });
     });
   };
 

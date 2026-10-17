@@ -36,6 +36,9 @@ import { SystemClock } from "../shared/time.js";
 import { vekilPolicyAbi } from "./abi.js";
 
 export const RECEIPT_TIMEOUT_MS = 10_000;
+/** Multicall3 (same address on every EVM chain; deployed on Avalanche C-Chain and Fuji). */
+export const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
+const MULTICALL3_CHAINS = new Set([43113, 43114]);
 const PREFIX30_RE = /^[0-9a-f]{30}$/;
 const ZERO_BYTES32 = ZERO_HASH;
 
@@ -144,9 +147,13 @@ export class ViemPolicyChain implements PolicyChain {
       name: `chain-${opts.chainId}`,
       nativeCurrency: { name: "AVAX", symbol: "AVAX", decimals: 18 },
       rpcUrls: { default: { http: [opts.rpcUrl] } },
+      ...(MULTICALL3_CHAINS.has(opts.chainId) ? { contracts: { multicall3: { address: MULTICALL3 } } } : {}),
     });
     const transport = http(opts.rpcUrl, { retryCount: 1 });
-    this.pub = createPublicClient({ chain: this.chain, transport, pollingInterval: this.pollingIntervalMs });
+    // On Fuji/mainnet, concurrent reads at the same block go out as one Multicall3 eth_call: the public RPC rate-limits
+    // per request, and the watchers read the view every few seconds from two processes.
+    const multicall = MULTICALL3_CHAINS.has(opts.chainId);
+    this.pub = createPublicClient({ chain: this.chain, transport, pollingInterval: this.pollingIntervalMs, ...(multicall ? { batch: { multicall: true } } : {}) });
     const signer = (key: Hex | undefined): Signer | null => {
       if (!key) return null;
       const account = privateKeyToAccount(key);

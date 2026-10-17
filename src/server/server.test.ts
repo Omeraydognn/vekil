@@ -40,3 +40,15 @@ describe("core server", () => {
     expect((await post("/api/anchor")).status).toBe(200);
   });
 });
+
+describe("errorText", () => {
+  it("shortens a viem error and names a 429 from the RPC", async () => {
+    const { errorText } = await import("./server.js");
+    const http = Object.assign(new Error("HTTP request failed.\nDetails: <!doctype html>..."), { status: 429 });
+    const wrapped = Object.assign(new Error("outer\n<html>"), { shortMessage: "HTTP request failed.", cause: { cause: http } });
+    expect(errorText(wrapped)).toMatch(/429/);
+    expect(errorText(wrapped)).not.toMatch(/html/);
+    expect(errorText(Object.assign(new Error("long\nbody"), { shortMessage: "kısa" }))).toBe("kısa");
+    expect(errorText(new Error("first\nsecond"))).toBe("first");
+  });
+});

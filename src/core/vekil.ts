@@ -278,9 +278,10 @@ export class Vekil implements VekilCore {
 
   async watchTick(): Promise<void> {
     try {
-      const v = await this.d.chain.readView();
-      this.ctrs = await this.d.chain.counters();
-      this.lastAnchoredSeq = await this.d.chain.lastAnchoredSeq();
+      // Concurrent: on Fuji/mainnet the reads are batched into multicalls (fewer RPC requests).
+      const [v, ctrs, anchored] = await Promise.all([this.d.chain.readView(), this.d.chain.counters(), this.d.chain.lastAnchoredSeq()]);
+      this.ctrs = ctrs;
+      this.lastAnchoredSeq = anchored;
       await this.onView(v);
     } catch {
       // stale chain state shows up in preflight as CHAIN_STATE_STALE
